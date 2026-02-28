@@ -1,5 +1,17 @@
 ﻿#include "mifare.h"
 #include <QJsonArray>
+#include <QBrush>
+#include <QColor>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QTextEdit>
+#include <QPushButton>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <QSpinBox>
+#include <QComboBox>
+#include <QLineEdit>
+#include <QLabel>
 
 const Mifare::CardType Mifare::card_mini = {
     0, 5, 20, {4, 4, 4, 4, 4}, {0, 4, 8, 12, 16}, "mini"};
@@ -158,86 +170,243 @@ void Mifare::chk() {
 }
 
 void Mifare::nested(bool isStaticNested) {
-  QVariantMap config = configMap["nested"].toMap();
-  QString cmd;
-  if (isStaticNested)
-    cmd = config["static cmd"].toString();
-  else
-    cmd = config["cmd"].toString();
-  int keyAindex = config["key A index"].toInt();
-  int keyBindex = config["key B index"].toInt();
-  QRegularExpression keyPattern = QRegularExpression(
-      config["key pattern"].toString(), QRegularExpression::MultilineOption);
-  QRegularExpressionMatch reMatch;
-  QString result;
-  int offset = 0;
-  QString data;
+    QVariantMap config = configMap["nested"].toMap();
+    QString cmd = isStaticNested ? config["static cmd"].toString() : config["cmd"].toString();
 
-  cmd.replace("<card type>",
-              config["card type"].toMap()[cardType.typeText].toString());
-  if (cmd.contains(QRegularExpression("<.+>"))) // need at least one section key
-  {
-    QString knownKey, knownKeyType;
-    int knownKeySector = -1;
+    int keyAindex = config["key A index"].toInt();
+    int keyBindex = config["key B index"].toInt();
+    QRegularExpression keyPattern = QRegularExpression(config["key pattern"].toString(), QRegularExpression::MultilineOption);
+
+    // --- 1. 智能寻找：找一个已知的密码作为默认“已知密钥” ---
+    QString defaultKey = "FFFFFFFFFFFF";
+    int defaultSector = 0;
+    QString defaultType = "A";
+
     for (int i = 0; i < cardType.sector_size; i++) {
-      if (data_isKeyValid(keyAList->at(i))) {
-        knownKeyType = "A";
-        knownKey = keyAList->at(i);
-        knownKeySector = i;
-        break;
-      } else if (data_isKeyValid(keyBList->at(i))) {
-        knownKeyType = "B";
-        knownKey = keyBList->at(i);
-        knownKeySector = i;
-        break;
-      }
+        if (data_isKeyValid(keyAList->at(i))) {
+            defaultKey = keyAList->at(i);
+            defaultSector = i;
+            defaultType = "A";
+            break;
+        } else if (data_isKeyValid(keyBList->at(i))) {
+            defaultKey = keyBList->at(i);
+            defaultSector = i;
+            defaultType = "B";
+            break;
+        }
     }
-    if (knownKeySector != -1) {
-      cmd.replace("<block>", QString::number(cardType.blks[knownKeySector]));
-      cmd.replace("<key type>",
-                  config["key type"].toMap()[knownKeyType].toString());
-      cmd.replace("<key>", knownKey);
-    } else {
-      QMessageBox::information(parent, tr("Info"),
-                               tr("Plz provide at least one known key"));
-      return;
-    }
-  }
-  result = util->execCMDWithOutput(
-      cmd,
-      Util::ReturnTrigger(15000, {"Quit", "Can't found", "Can't authenticate",
-                                  keyPattern_res->pattern()}),
-      true);
 
-  if (result.contains("static") && !isStaticNested) {
-    nested(true);
-    return;
-  }
+    static QString finalKey;
+    static int finalBlock;
+    static QString finalType;
 
-  for (int i = 0; i < cardType.sector_size; i++) {
-    reMatch = keyPattern.match(result, offset);
-    offset = reMatch.capturedStart();
-    if (reMatch.hasMatch()) {
-      data = reMatch.captured().toUpper();
-      offset += data.length();
-      QStringList cells = data.remove(" ").split("|");
-      if (!cells[keyAindex].contains(QRegularExpression("[^0-9a-fA-F]"))) {
-        keyAList->replace(i, cells[keyAindex]);
-      }
-      if (!cells[keyBindex].contains(QRegularExpression("[^0-9a-fA-F]"))) {
-        keyBList->replace(i, cells[keyBindex]);
-      }
+    // --- 2. 构建与 Hardnested 同样高颜值的输入弹窗 ---
+    if (!isStaticNested) {
+        QDialog dialog(parent);
+        dialog.setWindowTitle(tr("Nested 攻击参数设置"));
+        QFormLayout form(&dialog);
+
+        // ======== 已知密钥部分 ========
+        form.addRow(new QLabel(tr("<span style='color: #1976D2;'><b>【 🔑 已知密钥 (Known Key)】</b></span>")));
+
+        QComboBox *sectorCombo = new QComboBox(&dialog);
+        for (int i = 0; i < cardType.sector_size; i++) {
+            sectorCombo->addItem(QString::number(i));
+        }
+        sectorCombo->setCurrentIndex(defaultSector);
+        sectorCombo->setMinimumWidth(100);
+        form.addRow(tr("已知扇区 (Sector):"), sectorCombo);
+
+        QComboBox *typeCombo = new QComboBox(&dialog);
+        typeCombo->addItem("Type A", "A");
+        typeCombo->addItem("Type B", "B");
+        typeCombo->setCurrentIndex(defaultType == "A" ? 0 : 1);
+        typeCombo->setMinimumWidth(100);
+        form.addRow(tr("密钥类型 (Type):"), typeCombo);
+
+        QLineEdit *keyEdit = new QLineEdit(&dialog);
+        keyEdit->setText(defaultKey);
+        keyEdit->setMinimumWidth(150);
+        keyEdit->setAlignment(Qt::AlignCenter);
+        form.addRow(tr("已知密钥 (Key):"), keyEdit);
+
+        form.addRow(new QLabel(tr(" "))); // 空行分隔
+
+        // ======== 目标提示部分 (为了UI对称和功能说明) ========
+        form.addRow(new QLabel(tr("<span style='color: #E53935;'><b>【 🎯 攻击目标 (Target)】</b></span>")));
+
+        QLabel *targetHint = new QLabel(tr("探测并收集所有未知扇区的密钥\n(程序将自动执行\"知一求全\")"));
+        targetHint->setStyleSheet("color: #666666; font-size: 12px;");
+        targetHint->setAlignment(Qt::AlignCenter);
+        form.addRow(targetHint);
+
+        form.addRow(new QLabel(tr(" "))); // 空行分隔
+
+        // ======== 确认按钮 ========
+        QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+        form.addRow(&buttonBox);
+        QObject::connect(&buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(&buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+        if (dialog.exec() == QDialog::Accepted) {
+            finalKey = keyEdit->text().remove(" ").toUpper();
+            finalType = typeCombo->currentData().toString();
+            // 核心转换：将用户选择的下拉框索引(即扇区号)转为控制块号
+            finalBlock = getTrailerBlockId(sectorCombo->currentIndex());
+
+            if (!data_isKeyValid(finalKey)) {
+                QMessageBox::critical(parent, tr("错误"), tr("密钥格式不正确！"));
+                return;
+            }
+        } else {
+            return;
+        }
     }
-  }
-  data_syncWithKeyWidget();
+
+    // --- 3. 执行指令拼接逻辑 ---
+    cmd.replace("<card type>", config["card type"].toMap()[cardType.typeText].toString());
+    cmd.replace("<block>", QString::number(finalBlock));
+    cmd.replace("<key type>", config["key type"].toMap()[finalType].toString());
+    cmd.replace("<key>", finalKey);
+
+    QString result = util->execCMDWithOutput(
+        cmd,
+        Util::ReturnTrigger(15000, {"Quit", "Can't found", "Can't authenticate", keyPattern_res->pattern()}),
+        true);
+
+    // 自动判断并切换至 Staticnested 漏洞
+    if (result.contains("static") && !isStaticNested) {
+        nested(true);
+        return;
+    }
+
+    // 解析结果并更新到 UI 面板
+    int offset = 0;
+    for (int i = 0; i < cardType.sector_size; i++) {
+        QRegularExpressionMatch reMatch = keyPattern.match(result, offset);
+        if (reMatch.hasMatch()) {
+            QString data = reMatch.captured().toUpper();
+            offset = reMatch.capturedStart() + data.length();
+            QStringList cells = data.remove(" ").split("|");
+            if (!cells[keyAindex].contains(QRegularExpression("[^0-9a-fA-F]"))) keyAList->replace(i, cells[keyAindex]);
+            if (!cells[keyBindex].contains(QRegularExpression("[^0-9a-fA-F]"))) keyBList->replace(i, cells[keyBindex]);
+        }
+    }
+    data_syncWithKeyWidget();
 }
 
 void Mifare::hardnested() {
-  QVariantMap config = configMap["hardnested"].toMap();
-  MF_Attack_hardnestedDialog dialog(cardType.block_size, config);
-  connect(&dialog, &MF_Attack_hardnestedDialog::sendCMD, util, &Util::execCMD);
-  if (dialog.exec() == QDialog::Accepted)
-    Util::gotoRawTab();
+    QVariantMap config = configMap["hardnested"].toMap();
+    QString cmd = config["cmd"].toString();
+
+    // --- 1. 智能寻找：找一个已知的密码作为默认“已知密钥” ---
+    QString defaultKnownKey = "FFFFFFFFFFFF";
+    int defaultKnownSector = 0;
+    QString defaultKnownType = "A";
+
+    for (int i = 0; i < cardType.sector_size; i++) {
+        if (data_isKeyValid(keyAList->at(i))) {
+            defaultKnownKey = keyAList->at(i);
+            defaultKnownSector = i;
+            defaultKnownType = "A";
+            break;
+        } else if (data_isKeyValid(keyBList->at(i))) {
+            defaultKnownKey = keyBList->at(i);
+            defaultKnownSector = i;
+            defaultKnownType = "B";
+            break;
+        }
+    }
+
+    // --- 2. 智能寻找：找一个还没破解的扇区作为默认“目标扇区” ---
+    int defaultTargetSector = 0;
+    for (int i = 0; i < cardType.sector_size; i++) {
+        // 如果 A 密码或 B 密码有任意一个是无效的，说明这个扇区需要破解
+        if (!data_isKeyValid(keyAList->at(i)) || !data_isKeyValid(keyBList->at(i))) {
+            defaultTargetSector = i;
+            break;
+        }
+    }
+
+    // --- 3. 构建高颜值、统一风格的输入弹窗 ---
+    QDialog dialog(parent);
+    dialog.setWindowTitle(tr("Hardnested 攻击参数设置"));
+    QFormLayout form(&dialog);
+
+    // ======== 已知密钥部分 ========
+    form.addRow(new QLabel(tr("<span style='color: #1976D2;'><b>【 🔑 第一部分：已知密钥 (Known Key)】</b></span>")));
+
+    QComboBox *knownSectorCombo = new QComboBox(&dialog);
+    for (int i = 0; i < cardType.sector_size; i++) knownSectorCombo->addItem(QString::number(i));
+    knownSectorCombo->setCurrentIndex(defaultKnownSector);
+    knownSectorCombo->setMinimumWidth(100);
+    form.addRow(tr("已知扇区 (Sector):"), knownSectorCombo);
+
+    QComboBox *knownTypeCombo = new QComboBox(&dialog);
+    knownTypeCombo->addItem("Type A", "A");
+    knownTypeCombo->addItem("Type B", "B");
+    knownTypeCombo->setCurrentIndex(defaultKnownType == "A" ? 0 : 1);
+    knownTypeCombo->setMinimumWidth(100);
+    form.addRow(tr("已知类型 (Type):"), knownTypeCombo);
+
+    QLineEdit *knownKeyEdit = new QLineEdit(&dialog);
+    knownKeyEdit->setText(defaultKnownKey);
+    knownKeyEdit->setMinimumWidth(150);
+    knownKeyEdit->setAlignment(Qt::AlignCenter);
+    form.addRow(tr("已知密钥 (Key):"), knownKeyEdit);
+
+    form.addRow(new QLabel(tr(" "))); // 空行分隔
+
+    // ======== 目标密钥部分 ========
+    form.addRow(new QLabel(tr("<span style='color: #E53935;'><b>【 🎯 第二部分：目标扇区 (Target Key)】</b></span>")));
+
+    QComboBox *targetSectorCombo = new QComboBox(&dialog);
+    for (int i = 0; i < cardType.sector_size; i++) targetSectorCombo->addItem(QString::number(i));
+    targetSectorCombo->setCurrentIndex(defaultTargetSector);
+    targetSectorCombo->setMinimumWidth(100);
+    form.addRow(tr("目标扇区 (Sector):"), targetSectorCombo);
+
+    QComboBox *targetTypeCombo = new QComboBox(&dialog);
+    targetTypeCombo->addItem("Type A", "A");
+    targetTypeCombo->addItem("Type B", "B");
+    targetTypeCombo->setMinimumWidth(100);
+    form.addRow(tr("目标类型 (Type):"), targetTypeCombo);
+
+    form.addRow(new QLabel(tr(" "))); // 空行分隔
+
+    // ======== 确认按钮 ========
+    QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+    form.addRow(&buttonBox);
+    QObject::connect(&buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(&buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    // --- 4. 捕获输入，自动计算 Block，执行攻击 ---
+    if (dialog.exec() == QDialog::Accepted) {
+        QString finalKnownKey = knownKeyEdit->text().remove(" ").toUpper();
+        QString finalKnownType = knownTypeCombo->currentData().toString();
+        // 核心转换：已知扇区 -> 对应的 Block
+        int finalKnownBlock = getTrailerBlockId(knownSectorCombo->currentIndex());
+
+        QString finalTargetType = targetTypeCombo->currentData().toString();
+        // 核心转换：目标扇区 -> 对应的 Block
+        int finalTargetBlock = getTrailerBlockId(targetSectorCombo->currentIndex());
+
+        if (!data_isKeyValid(finalKnownKey)) {
+            QMessageBox::critical(parent, tr("错误"), tr("已知密钥格式不正确！"));
+            return;
+        }
+
+        // 替换命令中的占位符
+        cmd.replace("<known key block>", QString::number(finalKnownBlock));
+        cmd.replace("<known key type>", config["known key type"].toMap()[finalKnownType].toString());
+        cmd.replace("<known key>", finalKnownKey);
+        cmd.replace("<target key block>", QString::number(finalTargetBlock));
+        cmd.replace("<target key type>", config["target key type"].toMap()[finalTargetType].toString());
+
+        // 发送给客户端并跳转到控制台
+        util->execCMD(cmd);
+        Util::gotoRawTab();
+    }
 }
 
 void Mifare::darkside() {
@@ -712,24 +881,51 @@ void Mifare::writeSelected(TargetType targetType) {
   }
 }
 
-void Mifare::dump() {
-  QVariantMap config = configMap["dump"].toMap();
-  QString cmd = config["cmd"].toString();
-  if (cmd.contains("<card type>"))
-    cmd.replace("<card type>",
-                config["card type"].toMap()[cardType.typeText].toString());
-  util->execCMD(cmd);
-  Util::gotoRawTab();
+void Mifare::dump(const QString &keyFilename) {
+    QVariantMap config = configMap["dump"].toMap();
+    QString cmd = config["cmd"].toString();
+    if (cmd.contains("<card type>"))
+        cmd.replace("<card type>",
+                    config["card type"].toMap()[cardType.typeText].toString());
+
+    // 追加 -k 参数以使用指定的密钥文件
+    if (!keyFilename.isEmpty()) {
+        cmd += " -k \"" + keyFilename + "\"";
+    }
+
+    util->execCMD(cmd);
+    Util::gotoRawTab();
 }
 
-void Mifare::restore() {
-  QVariantMap config = configMap["restore"].toMap();
-  QString cmd = config["cmd"].toString();
-  if (cmd.contains("<card type>"))
-    cmd.replace("<card type>",
-                config["card type"].toMap()[cardType.typeText].toString());
-  util->execCMD(cmd);
-  Util::gotoRawTab();
+void Mifare::restore(const QString &dumpFilename, const QString &keyFilename, bool isBlankCard, bool force) {
+    QVariantMap config = configMap["restore"].toMap();
+    QString cmd = config["cmd"].toString();
+    if (cmd.contains("<card type>"))
+        cmd.replace("<card type>",
+                    config["card type"].toMap()[cardType.typeText].toString());
+
+    // 清理多余的 force
+    QStringList args = cmd.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+    args.removeAll("--force");
+    cmd = args.join(" ");
+
+    // 1. 必须的 Dump 和 Key 参数
+    if (!dumpFilename.isEmpty()) cmd += " -f \"" + dumpFilename + "\"";
+    if (!keyFilename.isEmpty())  cmd += " -k \"" + keyFilename + "\"";
+
+    // 2. 核心逻辑：非白卡（已加密）才使用 Key 文件去开门验证
+    if (!isBlankCard && !keyFilename.isEmpty()) {
+        cmd += " --ka";
+    }
+
+    // 3. 强制覆盖参数
+    if (force) {
+        cmd += " --force";
+    }
+
+    cmd = cmd.simplified();
+    util->execCMD(cmd);
+    Util::gotoRawTab();
 }
 
 void Mifare::wipeC() {
@@ -970,11 +1166,129 @@ bool Mifare::data_loadDataFile(const QString &filename) {
       }
     }
     file.close();
+
+    // --- 新增：智能修正 Dump 文件中的隐藏密码 ---
+    for (int i = 0; i < cardType.block_size; i++) {
+        // 判断当前块是不是密码控制块 (Trailer Block)
+        bool isTrailer = (i < 128 && ((i + 1) % 4 == 0)) || ((i + 1) % 16 == 0);
+        if (isTrailer) {
+            QString fileData = dataList->at(i);
+            if (fileData.length() == 32) {
+                bool changed = false;
+                // 如果读出的 KeyB 全是0，说明原卡 KeyB 隐藏不可读，自动转为 FFFFFFFFFFFF
+                if (fileData.right(12) == "000000000000") {
+                    fileData.replace(20, 12, "FFFFFFFFFFFF");
+                    changed = true;
+                }
+                // 如果 KeyA 也是0，同理恢复
+                if (fileData.left(12) == "000000000000") {
+                    fileData.replace(0, 12, "FFFFFFFFFFFF");
+                    changed = true;
+                }
+                // 将修正后的数据写回内存列表
+                if (changed) {
+                    dataList->replace(i, fileData);
+                }
+            }
+        }
+    }
+
     data_syncWithDataWidget();
     return true;
   } else {
     return false;
   }
+}
+
+bool Mifare::data_compareDataFile(const QString &filename) {
+    QFile file(filename, this);
+    if (!file.open(QIODevice::ReadOnly)) return false;
+
+    QByteArray buff = file.read(10000);
+    file.close();
+
+    bool isBin = false;
+    for (int i = 0; i < cardType.block_size * 16; i++) {
+        if (!((buff[i] >= 'A' && buff[i] <= 'F') || (buff[i] >= 'a' && buff[i] <= 'f') ||
+              (buff[i] >= '0' && buff[i] <= '9') || buff[i] == '\n' || buff[i] == '\r')) {
+            isBin = true;
+            break;
+        }
+    }
+
+    int diffCount = 0;
+    // 使用 HTML 格式来实现全量展示和差异标红，等宽字体保证上下对齐
+    QString diffResult = "<div style='font-family: Consolas, monospace; font-size: 13px;'>";
+    diffResult += "<h3>" + tr("【数据对比结果：面板数据 vs 新加载文件】") + "</h3>";
+
+    for (int i = 0; i < cardType.block_size; i++) {
+        QString fileData = "";
+        if (isBin) {
+            if (buff.size() >= (i + 1) * 16)
+                fileData = bin2text(buff, i, 16).toUpper();
+        } else {
+            QString tmp = buff.left(cardType.block_size * 34);
+            QStringList tmpList = tmp.split("\n");
+            if (tmpList.size() > i)
+                fileData = tmpList[i].toUpper();
+        }
+
+        QString panelData = dataList->at(i);
+        if (fileData.isEmpty()) fileData = "读取失败/数据缺失";
+
+        if (fileData != panelData) {
+            // 不一致：使用标准文本符号 ✖，保证大小对齐
+            diffResult += QString("<div style='margin-bottom: 10px;'>") +
+                          tr("<span style='color: #E53935; font-size: 14px;'><b>[✖] 块 (Block) %1: [不一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(panelData) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(fileData) + "</div>";
+            diffCount++;
+        } else {
+            // 一致：使用标准文本符号 ✔，保证大小对齐
+            diffResult += QString("<div style='margin-bottom: 10px;'>") +
+                          tr("<span style='color: #43A047; font-size: 14px;'><b>[✔] 块 (Block) %1: [一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(panelData) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(fileData) + "</div>";
+        }
+
+        // if (fileData != panelData) {
+        //     // 不一致：标题标红并加 ❌ 粗体，数据也标红
+        //     diffResult += QString("<div style='margin-bottom: 10px;'>") +
+        //                   tr("<span style='color: #E53935; font-size: 14px;'>❌ <b>块 (Block) %1: [不一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
+        //                   tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(panelData) + "<br>" +
+        //                   tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(fileData) + "</div>";
+        //     diffCount++;
+        // } else {
+        //     // 一致：标题标绿并加 ✅，数据使用较淡的灰色以降低视觉干扰
+        //     diffResult += QString("<div style='margin-bottom: 10px;'>") +
+        //                   tr("<span style='color: #43A047; font-size: 14px;'>✅ <b>块 (Block) %1: [一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
+        //                   tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(panelData) + "<br>" +
+        //                   tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(fileData) + "</div>";
+        // }
+    }
+    diffResult += "</div>";
+
+    // 弹窗展示
+    QDialog *diffDialog = new QDialog(parent);
+    diffDialog->setWindowTitle(tr("对比完成：发现 %1 个不同数据块").arg(diffCount));
+    diffDialog->resize(650, 500);
+
+    QVBoxLayout *layout = new QVBoxLayout(diffDialog);
+
+    QTextEdit *textEdit = new QTextEdit(diffDialog);
+    textEdit->setReadOnly(true);
+    textEdit->setHtml(diffResult); // 核心：按 HTML 渲染，自动处理颜色
+
+    QPushButton *closeBtn = new QPushButton(tr("关闭 (Close)"), diffDialog);
+    connect(closeBtn, &QPushButton::clicked, diffDialog, &QDialog::accept);
+
+    layout->addWidget(textEdit);
+    layout->addWidget(closeBtn);
+
+    diffDialog->exec();
+    diffDialog->deleteLater();
+
+    return true;
 }
 
 bool Mifare::data_loadKeyFile(const QString &filename) {

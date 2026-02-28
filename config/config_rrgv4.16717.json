@@ -70,7 +70,7 @@
             }
         },
         "restore": {
-            "cmd": "hf mf restore --<card type> --force",
+            "cmd": "hf mf restore --<card type>",
             "card type": {
                 "mini": "mini",
                 "1k": "1k",

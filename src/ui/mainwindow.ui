@@ -449,13 +449,6 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="MF_Attack_autopwnButton">
-             <property name="text">
-              <string>Autopwn</string>
-             </property>
-            </widget>
-           </item>
-           <item>
             <widget class="QPushButton" name="MF_Attack_rf08sButton">
              <property name="text">
               <string>Rf08sAtt</string>
@@ -498,6 +491,13 @@
              </property>
              <property name="text">
               <string>Darkside</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_autopwnButton">
+             <property name="text">
+              <string>Autopwn</string>
              </property>
             </widget>
            </item>
@@ -663,104 +663,19 @@
                </property>
               </widget>
              </item>
-            </layout>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="MF_simGroupBox">
-            <property name="title">
-             <string>Simulate</string>
-            </property>
-            <property name="checkable">
-             <bool>true</bool>
-            </property>
-            <layout class="QHBoxLayout" name="horizontalLayout_11">
-             <property name="topMargin">
-              <number>5</number>
-             </property>
-             <property name="rightMargin">
-              <number>9</number>
-             </property>
-             <property name="bottomMargin">
-              <number>5</number>
-             </property>
              <item>
-              <spacer name="horizontalSpacer_5">
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sim_writeSelectedButton">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>0</height>
-                </size>
-               </property>
+              <widget class="QPushButton" name="MF_File_compareButton">
                <property name="text">
-                <string>Write Selected</string>
+                <string>Compare</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="MF_Sim_readSelectedButton">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>0</height>
-                </size>
-               </property>
+              <widget class="QPushButton" name="MF_RW_generateEmptyDataButton">
                <property name="text">
-                <string>Read Selected</string>
+                <string>Generate Empty Data</string>
                </property>
               </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sim_clearButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Clear</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sim_simButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Simulate</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_6">
-               <property name="orientation">
-                <enum>Qt::Orientation::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
              </item>
             </layout>
            </widget>
@@ -988,9 +903,9 @@
                  </widget>
                 </item>
                 <item row="3" column="0">
-                 <widget class="QPushButton" name="MF_RW_generateEmptyDataButton">
+                 <widget class="QPushButton" name="MF_RW_wipeCardButton">
                   <property name="text">
-                   <string>Generate Empty Data</string>
+                   <string>Wipe Card</string>
                   </property>
                  </widget>
                 </item>

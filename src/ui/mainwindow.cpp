@@ -3,6 +3,15 @@
 
 #include <QDirIterator>
 #include <QJsonDocument>
+#include <QTimer>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QComboBox>
+#include <QHBoxLayout>
+#include <QFileDialog>
+#include <QDir>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -307,40 +316,72 @@ void MainWindow::refreshOutput(const QString &output) {
   ui->Raw_outputEdit->moveCursor(QTextCursor::End);
 
   // ==========================================
-  // 智能提示逻辑区
+  // 智能破解建议逻辑区 (防连弹延迟触发版)
   // ==========================================
 
-  // 1. 三代卡 (FM11RF08S) 检测
-  if (output.contains("Hint: Try `script run fm11rf08s_recovery.py",
-                      Qt::CaseInsensitive)) {
-    QMessageBox::information(
-        this, tr("提示"),
-        tr("读取到三代无漏洞卡 (FM11RF08S)！\n请点击【解三代卡】进行破解。"));
+  // 使用静态变量保持状态跨函数调用的存活
+  static QTimer* suggestTimer = nullptr;
+  static int currentVulnLevel = 0; // 威胁等级: 0:无, 1:强化卡, 2:弱随机数, 3:静态随机数, 4:三代卡
+
+  // 初始化一个只触发一次的定时器
+  if (!suggestTimer) {
+      suggestTimer = new QTimer(this);
+      suggestTimer->setSingleShot(true);
+      suggestTimer->setInterval(500); // 延迟 500 毫秒，等待 PM3 这批输出全部到达
+
+      connect(suggestTimer, &QTimer::timeout, this, [this]() {
+          QString allText = ui->Raw_outputEdit->toPlainText();
+          QString prefix = "";
+          if (allText.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
+              prefix = tr("检测到 Gen 2 / CUID 魔术卡：\n\n");
+          }
+
+          // 倒计时结束，根据最终锁定的最高威胁等级，只弹出一个窗口
+          if (currentVulnLevel == 4) {
+              QMessageBox::information(this, tr("三代卡检测"),
+                                       prefix + tr("【读取到复旦三代无漏洞卡 (FM11RF08S)】\n\n该卡免疫传统的 Nested 攻击。\n\n👉 建议：直接点击界面上的【解三代卡】按钮运行自动化脚本。"));
+          }
+          else if (currentVulnLevel == 3) {
+              QMessageBox::information(this, tr("破解建议"),
+                                       prefix + tr("【检测到静态随机数 (Static Nonce) 漏洞】\n\n👉 建议：使用【知一求全】破解，程序会自动切换至 staticnested 攻击，成功率极高且速度极快。"));
+          }
+          else if (currentVulnLevel == 2) {
+              QMessageBox::information(this, tr("破解建议"),
+                                       prefix + tr("【检测到弱随机数 (Weak PRNG) 漏洞】\n\n👉 建议：使用【知一求全】破解。"));
+          }
+          else if (currentVulnLevel == 1) {
+              QMessageBox::information(this, tr("破解建议"),
+                                       prefix + tr("【检测到强化加密 (Hardened) 卡片】\n\n该卡已修复 Nested 漏洞，无法直接通过常规方式破解。\n\n👉 建议：使用【Hardnested】攻击，需配合已知密码。"));
+          }
+
+          currentVulnLevel = 0; // 弹窗后必须重置等级，为下次刷卡做准备
+      });
   }
 
-  // 2. CUID 弱随机数检测
-  // if (output.contains("[+] Prng....... weak", Qt::CaseInsensitive)) {
-  //   QString allText = ui->Raw_outputEdit->toPlainText();
-  //   if (allText.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
-  //     QMessageBox::information(
-  //         this, tr("破解建议"),
-  //         tr("发现 Gen 2 / CUID 魔术卡，且 PRNG 为 weak（弱随机数）。\n\n👉 "
-  //            "建议：使用【Nested (知一求全)】或【Autopwn】进行破解。"));
-  //   }
-  // }
+  // 实时解析每一行，但只提升威胁等级，绝不立刻弹窗
+  bool needStartTimer = false;
 
-  // 3. CUID 静态随机数检测
-  // if (output.contains("[+] Static nonce... yes", Qt::CaseInsensitive) ||
-  //     output.contains("[#] Static nonce.......", Qt::CaseInsensitive)) {
-  //   QString allText = ui->Raw_outputEdit->toPlainText();
-  //   if (allText.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
-  //     QMessageBox::information(
-  //         this, tr("破解建议"),
-  //         tr("发现 Gen 2 / CUID 魔术卡，且存在 Static "
-  //            "nonce（静态随机数）特征。\n\n👉 建议：使用【Nested (勾选 "
-  //            "Static)】或【Hardnested】进行破解。"));
-  //   }
-  // }
+  if (output.contains("Hint: Try `script run fm11rf08s_recovery.py", Qt::CaseInsensitive)) {
+      if (currentVulnLevel < 4) currentVulnLevel = 4;
+      needStartTimer = true;
+  }
+  else if (output.contains("[+] Static nonce... yes", Qt::CaseInsensitive) ||
+           output.contains("[+] Static enc nonce... yes", Qt::CaseInsensitive)) {
+      if (currentVulnLevel < 3) currentVulnLevel = 3;
+      needStartTimer = true;
+  }
+  else if (output.contains("[+] Prng....... weak", Qt::CaseInsensitive)) {
+      if (currentVulnLevel < 2) currentVulnLevel = 2;
+      needStartTimer = true;
+  }
+  else if (output.contains("Hardened MIFARE Classic", Qt::CaseInsensitive)) {
+      if (currentVulnLevel < 1) currentVulnLevel = 1;
+      needStartTimer = true;
+  }
+
+  if (needStartTimer) {
+      suggestTimer->start(); // 如果计时器正在跑，再次调用 start() 会重置倒计时 (防抖的核心)
+  }
 
 
   // 1. 抓取并加载密钥文件 (key.bin)
@@ -348,42 +389,63 @@ void MainWindow::refreshOutput(const QString &output) {
   // 自动抓取与加载文件逻辑区 (兼容 rf08s 与 autopwn)
   // ==========================================
 
-  // 1. 抓取并加载密钥文件 (兼容 key.bin, key-1.bin, key-002.bin 等)
+  // 1. 抓取并加载密钥文件
   QRegularExpression keyRegex("(?:saved to file|dumped to)\\s+[`']?([^`'\\n\\r]+-key(?:-[0-9]+)?\\.bin)[`']?", QRegularExpression::CaseInsensitiveOption);
   QRegularExpressionMatch keyMatch = keyRegex.match(output);
   if (keyMatch.hasMatch()) {
       QString filePath = keyMatch.captured(1).trimmed();
-
       QFileInfo fileInfo(filePath);
-      QString fullPath = fileInfo.isAbsolute() ? filePath : clientWorkingDir->absolutePath() + "/" + filePath;
+      QString fullPath = filePath;
 
-      // 等待 500ms 确保文件写入完成
-      util->delay(500);
+      // 如果 PM3 给的是相对路径，智能判断它到底保存在哪
+      if (!fileInfo.isAbsolute()) {
+          QString pathInWorkDir = clientWorkingDir->absolutePath() + "/" + filePath;
+          QString pathInHomeDir = QDir::homePath() + "/" + filePath;
 
-      if (mifare->data_loadKeyFile(fullPath)) {
-          ui->funcTab->setCurrentIndex(0);
-          QMessageBox::information(this, tr("成功"), tr("密钥已破解完成！\n自动加载密钥文件：\n") + fileInfo.fileName());
+          if (QFile::exists(pathInWorkDir)) {
+              fullPath = pathInWorkDir;
+          } else if (QFile::exists(pathInHomeDir)) {
+              fullPath = pathInHomeDir;
+          } else {
+              fullPath = pathInWorkDir; // 兜底方案
+          }
       }
+
+      util->delay(500);
+      mifare->data_loadKeyFile(fullPath);
   }
 
-  // 2. 抓取并加载数据文件 (兼容 dump.bin, dump-002.bin 等)
+  // 2. 抓取并加载数据文件
   QRegularExpression dumpRegex("(?:saved to file|dumped to|to binary file)\\s+[`']?([^`'\\n\\r]+-dump(?:-[0-9]+)?\\.bin)[`']?", QRegularExpression::CaseInsensitiveOption);
   QRegularExpressionMatch dumpMatch = dumpRegex.match(output);
   if (dumpMatch.hasMatch()) {
       QString filePath = dumpMatch.captured(1).trimmed();
-
       QFileInfo fileInfo(filePath);
-      QString fullPath = fileInfo.isAbsolute() ? filePath : clientWorkingDir->absolutePath() + "/" + filePath;
+      QString fullPath = filePath;
 
-      util->delay(500); // 确保文件写入硬盘
+      // 同样的智能路径判断逻辑
+      if (!fileInfo.isAbsolute()) {
+          QString pathInWorkDir = clientWorkingDir->absolutePath() + "/" + filePath;
+          QString pathInHomeDir = QDir::homePath() + "/" + filePath;
+
+          if (QFile::exists(pathInWorkDir)) {
+              fullPath = pathInWorkDir;
+          } else if (QFile::exists(pathInHomeDir)) {
+              fullPath = pathInHomeDir;
+          } else {
+              fullPath = pathInWorkDir;
+          }
+      }
+
+      util->delay(500);
 
       if (mifare->data_loadDataFile(fullPath)) {
-          // 👉 核心神技：调用底层的 Data -> Key 功能，从加载的数据中精准提取密码到左侧面板
-          mifare->data_data2Key();
+          mifare->data_data2Key(); // 提取密码
 
-          // 自动切回 Mifare 面板并弹窗提示成功
           ui->funcTab->setCurrentIndex(0);
-          QMessageBox::information(this, tr("破解成功"), tr("卡片数据破解完成！\n已自动加载 Dump 文件并精准提取了所有密码。"));
+          // 将原来的“破解成功”替换为更严谨的“加载成功”
+          QMessageBox::information(this, tr("数据加载成功"),
+                                   tr("操作完成！\n已成功读取 Dump 数据文件，卡片数据及密码已自动同步至数据面板。"));
       }
   }
 }
@@ -852,9 +914,221 @@ void MainWindow::on_MF_RW_writeSelectedButton_clicked() {
   setState(true);
 }
 
-void MainWindow::on_MF_RW_dumpButton_clicked() { mifare->dump(); }
+void MainWindow::on_MF_RW_dumpButton_clicked() {
+    // 尝试从左侧数据面板获取卡号 (UID)
+    QString uid = mifare->data_getUID();
+    QString baseName;
 
-void MainWindow::on_MF_RW_restoreButton_clicked() { mifare->restore(); }
+    // 判断是否获取到了有效的 UID
+    if (!uid.isEmpty() && !uid.contains("?") && uid != "00000000") {
+        baseName = QString("hf-mf-%1").arg(uid.toUpper());
+    } else {
+        baseName = "hf-mf-unknown";
+    }
+
+    // 默认第一个文件名
+    QString keyFileName = baseName + "-key.bin";
+    QString keyFilePath = QDir::homePath() + "/" + keyFileName;
+
+    // --- 核心优化：模仿官方，重名则自动追加 -001, -002 ---
+    int counter = 1;
+    while (QFile::exists(keyFilePath)) {
+        // arg(counter, 3, 10, QChar('0')) 的作用是将数字补齐为 3 位，如 1 变成 001
+        keyFileName = baseName + QString("-key-%1.bin").arg(counter, 3, 10, QChar('0'));
+        keyFilePath = QDir::homePath() + "/" + keyFileName;
+        counter++;
+    }
+    // --------------------------------------------------
+
+    // 自动将右侧面板当前的密钥保存为不重名的二进制 Key 文件
+    if (mifare->data_saveKeyFile(keyFilePath, true)) {
+        // 带着新生成的密钥文件 (例如 hf-mf-UID-key-002.bin) 去执行 Dump
+        mifare->dump(keyFileName);
+    } else {
+        // 如果保存失败，退回默认的无参 Dump
+        mifare->dump();
+    }
+}
+
+void MainWindow::on_MF_RW_restoreButton_clicked() {
+    QString dumpFilename = "";
+    QString keyFilename = "";
+
+    // 0. 智能嗅探：从左侧数据面板中获取当前加载的 0 块 UID
+    QString uid = mifare->data_getUID();
+
+    if (!uid.isEmpty() && uid != "00000000" && uid != "FFFFFFFF") {
+        QStringList searchPaths;
+        searchPaths << clientWorkingDir->absolutePath() << QDir::homePath();
+
+        QString autoDumpPath = "";
+        QString autoKeyPath = "";
+
+        QString uidLower = uid.toLower();
+        QString uidUpper = uid.toUpper();
+
+        for (const QString &path : searchPaths) {
+            QDir dir(path);
+            if (!dir.exists()) continue;
+
+            QStringList dumpFilters;
+            dumpFilters << "*" + uidLower + "*dump*.bin" << "*" + uidUpper + "*dump*.bin";
+            QStringList dumpFiles = dir.entryList(dumpFilters, QDir::Files, QDir::Time);
+
+            QStringList keyFilters;
+            keyFilters << "*" + uidLower + "*key*.bin" << "*" + uidUpper + "*key*.bin";
+            QStringList keyFiles = dir.entryList(keyFilters, QDir::Files, QDir::Time);
+
+            if (!dumpFiles.isEmpty()) {
+                autoDumpPath = dir.absoluteFilePath(dumpFiles.first());
+                if (!keyFiles.isEmpty()) {
+                    autoKeyPath = dir.absoluteFilePath(keyFiles.first());
+                }
+                break;
+            }
+        }
+
+        if (!autoDumpPath.isEmpty()) {
+            QString msg = tr("检测到面板加载数据对应的备份文件 (卡号 %1)：\n\n"
+                             "📄 %2\n").arg(uid, autoDumpPath);
+            if (!autoKeyPath.isEmpty()) {
+                msg += tr("🔑 %1\n").arg(autoKeyPath);
+            }
+            msg += tr("\n是否将这些文件写入到当前放着的卡片中？");
+
+            QMessageBox msgBox(this);
+            msgBox.setWindowTitle(tr("智能发现匹配文件"));
+            msgBox.setText(msg);
+            msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+            msgBox.setDefaultButton(QMessageBox::Yes);
+
+            int reply = msgBox.exec();
+            if (reply == QMessageBox::Cancel) {
+                return; // 拦截：点击取消或右上角的 X
+            } else if (reply == QMessageBox::Yes) {
+                dumpFilename = autoDumpPath;
+                keyFilename = autoKeyPath;
+            }
+        } else {
+            QMessageBox::information(this, tr("智能匹配失败"),
+                                     tr("在工作目录和用户根目录下均未找到卡号包含 [%1] 的 dump 文件。\n"
+                                        "请手动选择要写入的数据文件。").arg(uid));
+        }
+    } else {
+        QMessageBox::information(this, tr("面板无数据"),
+                                 tr("左侧数据面板为空，或者尚未加载需要写入的扇区数据。\n"
+                                    "将进入手动选择文件模式。"));
+    }
+
+    // 1. 手动降级 Dump
+    if (dumpFilename.isEmpty()) {
+        QString dumpTitle = tr("第一步：请手动选择数据文件 (Dump.bin)");
+        dumpFilename = QFileDialog::getOpenFileName(
+            this, dumpTitle, QDir::homePath(),
+            tr("Binary Data Files(*.bin *.dump)") + ";;" + tr("All Files(*.*)"));
+        if (dumpFilename.isEmpty()) return; // 拦截：取消选择则退出
+    }
+
+    // 2. 询问目标卡物理状态 (这决定了是否给 PM3 下达 --ka 指令)
+    QMessageBox cardStateBox(this);
+    cardStateBox.setWindowTitle(tr("第二步：目标卡状态确认"));
+    cardStateBox.setText(tr("您要写入的【目标卡】，当前是【全新空白卡】还是【已有密码的加密卡】？\n\n"
+                            "👉 白卡：正常写入 (不加 --ka)。\n"
+                            "👉 加密卡：强制使用旧密码验证写入 (增加 --ka)。\n\n"
+                            "⚠️ 提示：无论您选择哪种卡，下一步都必须提供与 Dump 配套的 Key 密钥文件！"));
+    QPushButton *blankBtn = cardStateBox.addButton(tr("空白卡 (不加 --ka)"), QMessageBox::ActionRole);
+    cardStateBox.addButton(tr("加密卡 (加 --ka)"), QMessageBox::ActionRole);
+    cardStateBox.addButton(QMessageBox::Cancel);
+
+    cardStateBox.exec();
+
+    if (cardStateBox.clickedButton() == cardStateBox.button(QMessageBox::Cancel) || cardStateBox.clickedButton() == 0) {
+        return;
+    }
+
+    // true 表示不加 --ka, false 表示加 --ka
+    bool isBlankCard = (cardStateBox.clickedButton() == blankBtn);
+
+    // 3. 处理 Key 文件逻辑 (【关键修复】无论白卡黑卡，如果没找到 Key，都必须让用户手动选！)
+    if (keyFilename.isEmpty()) {
+        QString keyTitle = tr("第三步：请手动选择对应的密钥文件 (Key.bin)");
+        keyFilename = QFileDialog::getOpenFileName(
+            this, keyTitle, QDir::homePath(),
+            tr("Binary Key Files(*.bin *.dump *.key)") + ";;" + tr("All Files(*.*)"));
+        if (keyFilename.isEmpty()) return; // 拦截：取消选择则退出
+    }
+
+    // 4. 询问强制覆盖
+    QMessageBox forceBox(this);
+    forceBox.setWindowTitle(tr("第四步：附加选项"));
+    forceBox.setText(tr("是否启用 --force 强制覆盖？\n\n"
+                        "👉 强制：忽略卡号(UID)不匹配警告，强行覆盖写入。\n"
+                        "👉 不强制：遇到 UID 不匹配会安全中断，保护卡片。"));
+    QPushButton *forceBtn = forceBox.addButton(tr("强制覆盖 (--force)"), QMessageBox::ActionRole);
+    forceBox.addButton(tr("安全写入 (不强制)"), QMessageBox::ActionRole); // <-- 这里去掉了未使用的变量声明
+    forceBox.addButton(QMessageBox::Cancel);
+
+    forceBox.exec();
+
+    if (forceBox.clickedButton() == forceBox.button(QMessageBox::Cancel) || forceBox.clickedButton() == 0) {
+        return;
+    }
+
+    bool force = (forceBox.clickedButton() == forceBtn);
+
+    // 5. 智能融合逻辑 (增强版：直接修改 UI 控件)
+    mifare->data_loadDataFile(dumpFilename);
+    mifare->data_loadKeyFile(keyFilename);
+
+    int sectors = mifare->getCardType().sector_size;
+    for (int i = 0; i < sectors; i++) {
+        int trailerBlk = mifare->getTrailerBlockId(i);
+        QTableWidgetItem *dataItem = ui->MF_dataWidget->item(trailerBlk, 2);
+        if (!dataItem) continue;
+
+        QString trailerData = dataItem->text().remove(" ").toUpper();
+
+        // 获取 Key 列表中的真实密码
+        QTableWidgetItem *keyAItem = ui->MF_keyWidget->item(i, 1);
+        QTableWidgetItem *keyBItem = ui->MF_keyWidget->item(i, 2);
+        QString keyA = keyAItem ? keyAItem->text().remove(" ").toUpper() : "FFFFFFFFFFFF";
+        QString keyB = keyBItem ? keyBItem->text().remove(" ").toUpper() : "FFFFFFFFFFFF";
+
+        if (trailerData.length() == 32) {
+            QString dumpKeyB = trailerData.right(12);
+
+            // 【核心策略】：如果 dump 里是 0，且 Key 列表里有数据，则强制修补
+            if (dumpKeyB == "000000000000" || dumpKeyB == "FFFFFFFFFFFF") {
+                if (keyB != "000000000000" && keyB != "FFFFFFFFFFFF") {
+                    trailerData.replace(20, 12, keyB);
+                    // 关键点：不仅修补内存，还要同步回 UI 界面，确保导出的是正确的
+                    QString formatted;
+                    for (int i = 0; i < trailerData.length(); i += 2) {
+                        formatted += trailerData.mid(i, 2) + " ";
+                    }
+                    dataItem->setText(formatted.trimmed());
+                }
+            }
+        }
+    }
+
+    // 强制同步：把 UI 的修改同步到 mifare 对象的内部缓存
+    mifare->data_syncWithDataWidget(false, 0);
+
+    // 保存修补后的文件
+    QString patchedDump = clientWorkingDir->absolutePath() + "/restore_patched_dump.bin";
+    if (mifare->data_saveDataFile(patchedDump, true)) {
+        // 6. 执行写入
+        mifare->restore(patchedDump, keyFilename, isBlankCard, force);
+
+        // 【贴心小提示】
+        QMessageBox::information(this, tr("写入完成"),
+                                 tr("数据已尝试修补并下发指令给 PM3。\n\n"
+                                    "⚠️ 重要提示：\n"
+                                    "由于 PM3 软件缺陷，再次执行 [Autopwn/破解] 会强制在日志里把 KeyB 显示为 0。\n"
+                                    "请直接使用 [Read Block] 或刷卡测试来验证结果！"));
+    }
+}
 
 void MainWindow::on_MF_UID_readSelectedButton_clicked() {
   setState(false);
@@ -1320,8 +1594,8 @@ void MainWindow::signalInit() {
           &MainWindow::on_GroupBox_clicked);
   connect(ui->MF_UIDGroupBox, &QGroupBox::clicked, this,
           &MainWindow::on_GroupBox_clicked);
-  connect(ui->MF_simGroupBox, &QGroupBox::clicked, this,
-          &MainWindow::on_GroupBox_clicked);
+  // connect(ui->MF_simGroupBox, &QGroupBox::clicked, this, //删除模拟功能
+  //         &MainWindow::on_GroupBox_clicked);
 
   connect(stopButton, &QPushButton::clicked, this,
           &MainWindow::on_stopButton_clicked);
@@ -1390,7 +1664,7 @@ void MainWindow::setButtonsEnabled(bool st) {
   ui->MF_attackGroupBox->setEnabled(st);
   ui->MF_normalGroupBox->setEnabled(st);
   ui->MF_UIDGroupBox->setEnabled(st);
-  ui->MF_simGroupBox->setEnabled(st);
+  // ui->MF_simGroupBox->setEnabled(st);
   ui->Raw_CMDEdit->setEnabled(st);
   ui->Raw_sendCMDButton->setEnabled(st);
   ui->LF_LFconfigGroupBox->setEnabled(st);
@@ -1719,51 +1993,176 @@ void MainWindow::on_MF_Attack_rf08sButton_clicked() {
 }
 
 
-void MainWindow::on_MF_RW_generateEmptyDataButton_clicked(){
-    // 1. 获取当前卡片的总块数 (例如 1k卡是 64块)
+void MainWindow::on_MF_RW_generateEmptyDataButton_clicked() {
+    // --- 🚨 核心防砖拦截：必须先有真实的第 0 块 ---
+    QString block0Text = ui->MF_dataWidget->item(0, 2) ? ui->MF_dataWidget->item(0, 2)->text().remove(" ").toUpper() : "";
+    if (block0Text.length() != 32 || block0Text == "00000000000000000000000000000000") {
+        QMessageBox::critical(this, tr("危险拦截 (防变砖)"),
+                              tr("未检测到真实的卡片数据！\n\n"
+                                 "直接写入空的第 0 块会导致魔术卡永久损坏（变砖）。\n"
+                                 "👉 解决办法：请先将卡片放在读卡器上，点击面板上的【Read (读取)】或至少读取【0 扇区】，然后再生成空数据。"));
+        return; // 强行终止，绝不往下走
+    }
+
     int blocks = mifare->cardType.block_size;
 
-    // 2. 遍历所有块，修改内存中的数据区
     for (int i = 0; i < blocks; i++) {
-        if (i == 0) {
-            // 【核心安全机制】：跳过 0 块！绝对不碰卡号和厂商信息！
-            continue;
-        }
-
-        // 判断当前块是不是密码控制块 (Trailer)
+        if (i == 0) continue; // 绝对保留真实的0块
         bool isTrailer = (i < 128 && ((i + 1) % 4 == 0)) || ((i + 1) % 16 == 0);
-
-        if (isTrailer) {
-            // 密码块恢复出厂设置：密码A/B均为 FFFFFFFFFFFF，控制位为 FF078069
-            mifare->data_setData(i, "FFFFFFFFFFFFFF078069FFFFFFFFFFFF");
-        } else {
-            // 普通数据块全部清零
-            mifare->data_setData(i, "00000000000000000000000000000000");
-        }
+        if (isTrailer) mifare->data_setData(i, "FFFFFFFFFFFFFF078069FFFFFFFFFFFF");
+        else mifare->data_setData(i, "00000000000000000000000000000000");
     }
 
-    // 3. 刷新数据到 GUI 面板 (参数 true 表示全量刷新)
     mifare->data_syncWithDataWidget(true, 0);
 
-    // 4. 自动帮你勾选复选框（取消勾选0块，勾选其他所有块）
     ui->MF_dataWidget->blockSignals(true);
     ui->MF_selectAllBox->blockSignals(true);
-
-    ui->MF_dataWidget->item(0, 1)->setCheckState(Qt::Unchecked); // 保护0块，不参与写入
+    ui->MF_dataWidget->item(0, 1)->setCheckState(Qt::Unchecked);
     for (int i = 1; i < blocks; i++) {
-        ui->MF_dataWidget->item(i, 1)->setCheckState(Qt::Checked); // 准备写入其他块
+        ui->MF_dataWidget->item(i, 1)->setCheckState(Qt::Checked);
     }
-    ui->MF_selectAllBox->setCheckState(Qt::PartiallyChecked); // 全选框置为半选状态
-
+    ui->MF_selectAllBox->setCheckState(Qt::PartiallyChecked);
     ui->MF_dataWidget->blockSignals(false);
     ui->MF_selectAllBox->blockSignals(false);
 
-    // 5. 贴心弹窗提示
-    QMessageBox::information(this, tr("洗白准备就绪"),
+    QString emptyDumpPath = QDir::homePath() + "/empty-dump.bin";
+    mifare->data_saveDataFile(emptyDumpPath, true);
+
+    QMessageBox::information(this, tr("空数据生成完毕"),
                              tr("面板数据已转换为初始白卡状态！\n\n"
-                                "✅ 第 0 块（卡号与厂商信息）已为您保留，不会被覆盖。\n"
-                                "✅ 其他所有数据块已改为 00。\n"
-                                "✅ 所有密码已重置为 FFFFFFFFFFFF。\n\n"
-                                "👉 写入提示：请确保加密卡仍在读卡器上，直接点击面板上的【Write Selected (写入选中块)】即可完成洗白！"));
+                                "✅ 已自动在您的【用户目录】生成 <b>empty-dump.bin</b>\n"
+                                "👉 您现在可以点击【高级清卡 (Wipe)】按钮进行深度清理。"));
+}
+
+// ==========================================
+// ✨ 高级清卡 (Wipe Card) 核心逻辑
+// ==========================================
+void MainWindow::on_MF_RW_wipeCardButton_clicked() {
+    // --- 🚨 核心防砖拦截：必须先有真实的第 0 块 ---
+    QString block0Full = ui->MF_dataWidget->item(0, 2) ? ui->MF_dataWidget->item(0, 2)->text().remove(" ").toUpper() : "";
+    if (block0Full.length() != 32 || block0Full == "00000000000000000000000000000000") {
+        QMessageBox::critical(this, tr("危险拦截 (防变砖)"),
+                              tr("当前缺少真实的第 0 块（卡号与厂商信息）！\n\n"
+                                 "强制清卡前必须知道原卡的真实卡号，否则恢复数据会导致卡片报废。\n"
+                                 "👉 解决办法：请先读取卡片信息获取真实的第 0 块数据。"));
+        return; // 强行终止
+    }
+
+    QString emptyDumpPath = QDir::homePath() + "/empty-dump.bin";
+
+    // 1. 在后台静默生成安全的空 Dump（绝对使用真实的 block0Full）
+    QByteArray emptyData;
+    int blocks = mifare->cardType.block_size;
+
+    for (int i = 0; i < blocks; i++) {
+        QString hexStr;
+        if (i == 0) hexStr = block0Full; // 使用刚才强制校验过的真实数据
+        else {
+            bool isTrailer = (i < 128 && ((i + 1) % 4 == 0)) || ((i + 1) % 16 == 0);
+            hexStr = isTrailer ? "FFFFFFFFFFFFFF078069FFFFFFFFFFFF" : "00000000000000000000000000000000";
+        }
+        for(int k = 0; k < 32; k += 2) {
+            emptyData.append(static_cast<char>(hexStr.mid(k, 2).toUShort(nullptr, 16)));
+        }
+    }
+
+    // 每次点击高级清卡，都重新覆盖生成一次 empty-dump.bin，确保它包含的是【当前这张卡】的真实 UID
+    QFile file(emptyDumpPath);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(emptyData);
+        file.close();
+    }
+
+    // 2. 绘制高颜值对话框 (逻辑保持不变)
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("高级清卡参数设置"));
+    dialog.resize(500, 200);
+    QFormLayout form(&dialog);
+
+    form.addRow(new QLabel(tr("<span style='color: #E53935; font-size: 14px;'><b>【 ⚠️ 警告：此操作将使用原卡密码覆盖整卡数据】</b></span>")));
+    QLabel *targetHint = new QLabel(tr("将执行指令: restore -f empty-dump.bin -k [原卡密钥] --ka\n此操作将把加密卡彻底重置为空白卡状态（已自动安全保留第0块）。"));
+    targetHint->setStyleSheet("color: #666666; font-size: 12px; margin-bottom: 10px;");
+    targetHint->setAlignment(Qt::AlignCenter);
+    form.addRow(targetHint);
+
+    form.addRow(new QLabel(tr("<span style='color: #1976D2;'><b>【 📄 1. 空白数据文件 (Dump)】</b></span>")));
+    QHBoxLayout *dumpLayout = new QHBoxLayout();
+    QLineEdit *dumpEdit = new QLineEdit(&dialog);
+    dumpEdit->setText(emptyDumpPath);
+    dumpEdit->setMinimumWidth(250);
+    QPushButton *dumpBtn = new QPushButton(tr("浏览"), &dialog);
+    dumpLayout->addWidget(dumpEdit);
+    dumpLayout->addWidget(dumpBtn);
+    form.addRow(tr("Dump 文件:"), dumpLayout);
+
+    connect(dumpBtn, &QPushButton::clicked, [&]() {
+        QString path = QFileDialog::getOpenFileName(this, tr("选择空数据文件"), QDir::homePath(), "Dump Files(*.bin *.dump);;All Files(*.*)");
+        if (!path.isEmpty()) dumpEdit->setText(path);
+    });
+
+    form.addRow(new QLabel(" "));
+
+    form.addRow(new QLabel(tr("<span style='color: #43A047;'><b>【 🔑 2. 原卡密钥文件 (Key)】</b></span>")));
+    QHBoxLayout *keyLayout = new QHBoxLayout();
+    QLineEdit *keyEdit = new QLineEdit(&dialog);
+
+    QString uid = mifare->data_getUID();
+    QString autoKeyPath = "";
+    if (!uid.isEmpty() && uid != "00000000" && uid != "FFFFFFFF") {
+        QDir userDir(QDir::homePath());
+        QStringList keyFilters;
+        keyFilters << "*" + uid.toLower() + "*key*.bin" << "*" + uid.toUpper() + "*key*.bin";
+        QStringList keyFiles = userDir.entryList(keyFilters, QDir::Files, QDir::Time);
+        if (!keyFiles.isEmpty()) autoKeyPath = userDir.absoluteFilePath(keyFiles.first());
+    }
+    keyEdit->setText(autoKeyPath);
+    keyEdit->setMinimumWidth(250);
+
+    QPushButton *keyBtn = new QPushButton(tr("浏览"), &dialog);
+    keyLayout->addWidget(keyEdit);
+    keyLayout->addWidget(keyBtn);
+    form.addRow(tr("Key 文件:"), keyLayout);
+
+    connect(keyBtn, &QPushButton::clicked, [&]() {
+        QString path = QFileDialog::getOpenFileName(this, tr("选择原卡密钥"), QDir::homePath(), "Key Files(*.bin *.dump *.key);;All Files(*.*)");
+        if (!path.isEmpty()) keyEdit->setText(path);
+    });
+
+    form.addRow(new QLabel(" "));
+
+    QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+    form.addRow(&buttonBox);
+    connect(&buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(&buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    if (dialog.exec() == QDialog::Accepted) {
+        QString finalDump = dumpEdit->text();
+        QString finalKey = keyEdit->text();
+
+        if (finalDump.isEmpty() || finalKey.isEmpty()) {
+            QMessageBox::critical(this, tr("错误"), tr("请提供完整的 Dump 文件和 Key 文件路径！"));
+            return;
+        }
+        if (!QFile::exists(finalDump) || !QFile::exists(finalKey)) {
+            QMessageBox::critical(this, tr("错误"), tr("文件不存在，请检查路径是否正确！"));
+            return;
+        }
+
+        mifare->restore(finalDump, finalKey, false, false);
+    }
+}
+
+void MainWindow::on_MF_File_compareButton_clicked(){
+    QString title = tr("请选择要进行校验的 Dump 文件:");
+    QString filename = QFileDialog::getOpenFileName(
+        this, title, "./",
+        tr("Binary Data Files(*.bin *.dump)") + ";;" +
+            tr("Text Data Files(*.txt *.eml)") + ";;" + tr("All Files(*.*)"));
+
+    if (filename != "") {
+        if (!mifare->data_compareDataFile(filename)) {
+            QMessageBox::information(this, tr("错误"), tr("无法打开文件:\n") + filename);
+        }
+    }
 }
 

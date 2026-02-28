@@ -71,8 +71,8 @@ public:
   void readSelected(TargetType targetType = TARGET_MIFARE);
   void writeOne(TargetType targetType = TARGET_MIFARE);
   void writeSelected(TargetType targetType = TARGET_MIFARE);
-  void dump();
-  void restore();
+  void dump(const QString &keyFilename = "");
+  void restore(const QString &dumpFilename = "", const QString &keyFilename = "", bool isBlankCard = false, bool force = false);
   void autopwn();     // 新增的自动攻击函数
   void scriptRf08s(); // 新增的 RF08S 脚本攻击函数
 
@@ -91,6 +91,7 @@ public:
   void setParameterC();
 
   bool data_loadDataFile(const QString &filename);
+  bool data_compareDataFile(const QString &filename);
   bool data_loadKeyFile(const QString &filename);
   bool data_saveDataFile(const QString &filename, bool isBin);
   bool data_saveKeyFile(const QString &filename, bool isBin);
