@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1050</width>
-    <height>750</height>
+    <width>1154</width>
+    <height>878</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -191,13 +191,13 @@
              </font>
             </property>
             <property name="contextMenuPolicy">
-             <enum>Qt::PreventContextMenu</enum>
+             <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
             </property>
             <property name="acceptDrops">
              <bool>true</bool>
             </property>
             <property name="selectionMode">
-             <enum>QAbstractItemView::SingleSelection</enum>
+             <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
             </property>
             <attribute name="horizontalHeaderStretchLastSection">
              <bool>true</bool>
@@ -236,7 +236,7 @@
             <item>
              <spacer name="verticalSpacer">
               <property name="orientation">
-               <enum>Qt::Vertical</enum>
+               <enum>Qt::Orientation::Vertical</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -263,10 +263,10 @@
             <item>
              <spacer name="verticalSpacer_3">
               <property name="orientation">
-               <enum>Qt::Vertical</enum>
+               <enum>Qt::Orientation::Vertical</enum>
               </property>
               <property name="sizeType">
-               <enum>QSizePolicy::Fixed</enum>
+               <enum>QSizePolicy::Policy::Fixed</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -331,7 +331,7 @@
             <item>
              <spacer name="verticalSpacer_2">
               <property name="orientation">
-               <enum>Qt::Vertical</enum>
+               <enum>Qt::Orientation::Vertical</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>
@@ -358,13 +358,13 @@
              </font>
             </property>
             <property name="contextMenuPolicy">
-             <enum>Qt::PreventContextMenu</enum>
+             <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
             </property>
             <property name="acceptDrops">
              <bool>true</bool>
             </property>
             <property name="selectionMode">
-             <enum>QAbstractItemView::SingleSelection</enum>
+             <enum>QAbstractItemView::SelectionMode::SingleSelection</enum>
             </property>
             <attribute name="verticalHeaderVisible">
              <bool>false</bool>
@@ -395,7 +395,130 @@
          </layout>
         </item>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_9">
+         <widget class="QGroupBox" name="MF_attackGroupBox">
+          <property name="title">
+           <string>Attack</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <property name="topMargin">
+            <number>5</number>
+           </property>
+           <property name="bottomMargin">
+            <number>5</number>
+           </property>
+           <item>
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_infoButton">
+             <property name="minimumSize">
+              <size>
+               <width>40</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Card Info</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_chkButton">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Check Default</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_autopwnButton">
+             <property name="text">
+              <string>Autopwn</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_rf08sButton">
+             <property name="text">
+              <string>Rf08sAtt</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_nestedButton">
+             <property name="minimumSize">
+              <size>
+               <width>40</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Nested</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_hardnestedButton">
+             <property name="minimumSize">
+              <size>
+               <width>40</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Hardnested</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="MF_Attack_darksideButton">
+             <property name="minimumSize">
+              <size>
+               <width>40</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Darkside</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="horizontalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_7">
           <item>
            <widget class="QGroupBox" name="MF_typeGroupBox">
             <property name="title">
@@ -544,24 +667,27 @@
            </widget>
           </item>
           <item>
-           <widget class="QGroupBox" name="MF_attackGroupBox">
+           <widget class="QGroupBox" name="MF_simGroupBox">
             <property name="title">
-             <string>Attack</string>
+             <string>Simulate</string>
             </property>
             <property name="checkable">
              <bool>true</bool>
             </property>
-            <layout class="QHBoxLayout" name="horizontalLayout_5">
+            <layout class="QHBoxLayout" name="horizontalLayout_11">
              <property name="topMargin">
               <number>5</number>
+             </property>
+             <property name="rightMargin">
+              <number>9</number>
              </property>
              <property name="bottomMargin">
               <number>5</number>
              </property>
              <item>
-              <spacer name="horizontalSpacer">
+              <spacer name="horizontalSpacer_5">
                <property name="orientation">
-                <enum>Qt::Horizontal</enum>
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
@@ -572,7 +698,33 @@
               </spacer>
              </item>
              <item>
-              <widget class="QPushButton" name="MF_Attack_infoButton">
+              <widget class="QPushButton" name="MF_Sim_writeSelectedButton">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Write Selected</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="MF_Sim_readSelectedButton">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>0</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Read Selected</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="MF_Sim_clearButton">
                <property name="minimumSize">
                 <size>
                  <width>40</width>
@@ -580,25 +732,12 @@
                 </size>
                </property>
                <property name="text">
-                <string>Card Info</string>
+                <string>Clear</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="MF_Attack_chkButton">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="text">
-                <string>Check Default</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Attack_nestedButton">
+              <widget class="QPushButton" name="MF_Sim_simButton">
                <property name="minimumSize">
                 <size>
                  <width>40</width>
@@ -606,40 +745,14 @@
                 </size>
                </property>
                <property name="text">
-                <string>Nested</string>
+                <string>Simulate</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="MF_Attack_hardnestedButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Hardnested</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Attack_darksideButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Darkside</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_2">
+              <spacer name="horizontalSpacer_6">
                <property name="orientation">
-                <enum>Qt::Horizontal</enum>
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
@@ -653,6 +766,9 @@
            </widget>
           </item>
          </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_9"/>
         </item>
         <item>
          <widget class="QGroupBox" name="MF_RWGroupBox">
@@ -684,7 +800,7 @@
                  </property>
                  <property name="maximumSize">
                   <size>
-                   <width>60</width>
+                   <width>80</width>
                    <height>16777215</height>
                   </size>
                  </property>
@@ -735,7 +851,7 @@
                  </property>
                  <property name="maximumSize">
                   <size>
-                   <width>35</width>
+                   <width>80</width>
                    <height>16777215</height>
                   </size>
                  </property>
@@ -753,7 +869,7 @@
              <item>
               <spacer name="horizontalSpacer_3">
                <property name="orientation">
-                <enum>Qt::Horizontal</enum>
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
@@ -807,6 +923,19 @@
                   </property>
                  </widget>
                 </item>
+                <item row="1" column="0">
+                 <widget class="QPushButton" name="MF_RW_writeSelectedButton">
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Write Selected</string>
+                  </property>
+                 </widget>
+                </item>
                 <item row="0" column="0">
                  <widget class="QPushButton" name="MF_RW_readSelectedButton">
                   <property name="minimumSize">
@@ -820,16 +949,22 @@
                   </property>
                  </widget>
                 </item>
-                <item row="1" column="0">
-                 <widget class="QPushButton" name="MF_RW_writeSelectedButton">
+                <item row="1" column="1">
+                 <widget class="QPushButton" name="MF_RW_restoreButton">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
                   <property name="minimumSize">
                    <size>
-                    <width>0</width>
+                    <width>40</width>
                     <height>0</height>
                    </size>
                   </property>
                   <property name="text">
-                   <string>Write Selected</string>
+                   <string>Restore</string>
                   </property>
                  </widget>
                 </item>
@@ -852,22 +987,10 @@
                   </property>
                  </widget>
                 </item>
-                <item row="1" column="1">
-                 <widget class="QPushButton" name="MF_RW_restoreButton">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>40</width>
-                    <height>0</height>
-                   </size>
-                  </property>
+                <item row="3" column="0">
+                 <widget class="QPushButton" name="MF_RW_generateEmptyDataButton">
                   <property name="text">
-                   <string>Restore</string>
+                   <string>Generate Empty Data</string>
                   </property>
                  </widget>
                 </item>
@@ -1022,218 +1145,6 @@
           </layout>
          </widget>
         </item>
-        <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_7">
-          <item>
-           <widget class="QGroupBox" name="MF_simGroupBox">
-            <property name="title">
-             <string>Simulate</string>
-            </property>
-            <property name="checkable">
-             <bool>true</bool>
-            </property>
-            <layout class="QHBoxLayout" name="horizontalLayout_11">
-             <property name="topMargin">
-              <number>5</number>
-             </property>
-             <property name="rightMargin">
-              <number>9</number>
-             </property>
-             <property name="bottomMargin">
-              <number>5</number>
-             </property>
-             <item>
-              <spacer name="horizontalSpacer_5">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sim_writeSelectedButton">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Write Selected</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sim_readSelectedButton">
-               <property name="minimumSize">
-                <size>
-                 <width>0</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Read Selected</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sim_clearButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Clear</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sim_simButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Simulate</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_6">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
-           </widget>
-          </item>
-          <item>
-           <widget class="QGroupBox" name="MF_sniffGroupBox">
-            <property name="title">
-             <string>Sniff</string>
-            </property>
-            <property name="checkable">
-             <bool>true</bool>
-            </property>
-            <layout class="QHBoxLayout" name="horizontalLayout_4">
-             <property name="topMargin">
-              <number>5</number>
-             </property>
-             <property name="bottomMargin">
-              <number>5</number>
-             </property>
-             <item>
-              <spacer name="horizontalSpacer_7">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sniff_sniffButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Sniff</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_14aSniff_snoopButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Sniff(14a)</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sniff_listButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>List Data</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sniff_loadButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Load</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="MF_Sniff_saveButton">
-               <property name="minimumSize">
-                <size>
-                 <width>40</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Save</string>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <spacer name="horizontalSpacer_4">
-               <property name="orientation">
-                <enum>Qt::Horizontal</enum>
-               </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>40</width>
-                 <height>20</height>
-                </size>
-               </property>
-              </spacer>
-             </item>
-            </layout>
-           </widget>
-          </item>
-         </layout>
-        </item>
        </layout>
       </widget>
       <widget class="QWidget" name="lfTab">
@@ -1362,7 +1273,7 @@
                   <item>
                    <spacer name="horizontalSpacer_11">
                     <property name="orientation">
-                     <enum>Qt::Horizontal</enum>
+                     <enum>Qt::Orientation::Horizontal</enum>
                     </property>
                     <property name="sizeHint" stdset="0">
                      <size>
@@ -1386,7 +1297,7 @@
                    <number>95</number>
                   </property>
                   <property name="orientation">
-                   <enum>Qt::Horizontal</enum>
+                   <enum>Qt::Orientation::Horizontal</enum>
                   </property>
                  </widget>
                 </item>
@@ -1409,7 +1320,7 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
                <item>
                 <spacer name="horizontalSpacer_18">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -1505,7 +1416,7 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
                <item>
                 <spacer name="horizontalSpacer_12">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -1522,7 +1433,7 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
                <item>
                 <spacer name="horizontalSpacer_17">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -1580,7 +1491,7 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
                <item>
                 <spacer name="horizontalSpacer_8">
                  <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
+                  <enum>Qt::Orientation::Horizontal</enum>
                  </property>
                  <property name="sizeHint" stdset="0">
                   <size>
@@ -1630,10 +1541,10 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
                  <item>
                   <spacer name="verticalSpacer_6">
                    <property name="orientation">
-                    <enum>Qt::Vertical</enum>
+                    <enum>Qt::Orientation::Vertical</enum>
                    </property>
                    <property name="sizeType">
-                    <enum>QSizePolicy::Expanding</enum>
+                    <enum>QSizePolicy::Policy::Expanding</enum>
                    </property>
                    <property name="sizeHint" stdset="0">
                     <size>
@@ -1657,7 +1568,7 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
                   <string>Read and search for valid known tag.</string>
                  </property>
                  <property name="alignment">
-                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                  <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                  </property>
                  <property name="wordWrap">
                   <bool>true</bool>
@@ -1669,7 +1580,7 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
              <item>
               <widget class="Line" name="line_5">
                <property name="orientation">
-                <enum>Qt::Horizontal</enum>
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
               </widget>
              </item>
@@ -1687,10 +1598,10 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
                  <item>
                   <spacer name="verticalSpacer_9">
                    <property name="orientation">
-                    <enum>Qt::Vertical</enum>
+                    <enum>Qt::Orientation::Vertical</enum>
                    </property>
                    <property name="sizeType">
-                    <enum>QSizePolicy::Expanding</enum>
+                    <enum>QSizePolicy::Policy::Expanding</enum>
                    </property>
                    <property name="sizeHint" stdset="0">
                     <size>
@@ -1715,7 +1626,7 @@ When setting the freq, the &quot;hw setlfdivisor&quot; will also be called.</str
 Use this to get raw data from a tag.</string>
                  </property>
                  <property name="alignment">
-                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                  <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                  </property>
                  <property name="wordWrap">
                   <bool>true</bool>
@@ -1727,7 +1638,7 @@ Use this to get raw data from a tag.</string>
              <item>
               <widget class="Line" name="line_6">
                <property name="orientation">
-                <enum>Qt::Horizontal</enum>
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
               </widget>
              </item>
@@ -1745,10 +1656,10 @@ Use this to get raw data from a tag.</string>
                  <item>
                   <spacer name="verticalSpacer_7">
                    <property name="orientation">
-                    <enum>Qt::Vertical</enum>
+                    <enum>Qt::Orientation::Vertical</enum>
                    </property>
                    <property name="sizeType">
-                    <enum>QSizePolicy::Expanding</enum>
+                    <enum>QSizePolicy::Policy::Expanding</enum>
                    </property>
                    <property name="sizeHint" stdset="0">
                     <size>
@@ -1774,7 +1685,7 @@ If the antenna voltage has a obvious drop after putting card on the antenna, it 
 On Iceman/RRG repo, press the button on PM3 to stop measuring</string>
                  </property>
                  <property name="alignment">
-                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                  <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                  </property>
                  <property name="wordWrap">
                   <bool>true</bool>
@@ -1786,7 +1697,7 @@ On Iceman/RRG repo, press the button on PM3 to stop measuring</string>
              <item>
               <widget class="Line" name="line_7">
                <property name="orientation">
-                <enum>Qt::Horizontal</enum>
+                <enum>Qt::Orientation::Horizontal</enum>
                </property>
               </widget>
              </item>
@@ -1804,10 +1715,10 @@ On Iceman/RRG repo, press the button on PM3 to stop measuring</string>
                  <item>
                   <spacer name="verticalSpacer_8">
                    <property name="orientation">
-                    <enum>Qt::Vertical</enum>
+                    <enum>Qt::Orientation::Vertical</enum>
                    </property>
                    <property name="sizeType">
-                    <enum>QSizePolicy::Expanding</enum>
+                    <enum>QSizePolicy::Policy::Expanding</enum>
                    </property>
                    <property name="sizeHint" stdset="0">
                     <size>
@@ -1833,7 +1744,7 @@ Use this to get raw data from a reader
 or the communication between a tag and a reader.</string>
                  </property>
                  <property name="alignment">
-                  <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+                  <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
                  </property>
                  <property name="wordWrap">
                   <bool>true</bool>
@@ -1848,7 +1759,7 @@ or the communication between a tag and a reader.</string>
           <item>
            <spacer name="verticalSpacer_4">
             <property name="orientation">
-             <enum>Qt::Vertical</enum>
+             <enum>Qt::Orientation::Vertical</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
@@ -1863,10 +1774,10 @@ or the communication between a tag and a reader.</string>
         <item>
          <spacer name="horizontalSpacer_19">
           <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+           <enum>Qt::Orientation::Horizontal</enum>
           </property>
           <property name="sizeType">
-           <enum>QSizePolicy::Expanding</enum>
+           <enum>QSizePolicy::Policy::Expanding</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -1944,7 +1855,7 @@ or the communication between a tag and a reader.</string>
            <item>
             <spacer name="horizontalSpacer_15">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -1971,7 +1882,7 @@ or the communication between a tag and a reader.</string>
            <item>
             <spacer name="horizontalSpacer_14">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -2146,7 +2057,7 @@ or the communication between a tag and a reader.</string>
          <item>
           <spacer name="verticalSpacer_10">
            <property name="orientation">
-            <enum>Qt::Vertical</enum>
+            <enum>Qt::Orientation::Vertical</enum>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
@@ -2220,7 +2131,7 @@ or the communication between a tag and a reader.</string>
            <item>
             <spacer name="horizontalSpacer_16">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -2247,7 +2158,7 @@ or the communication between a tag and a reader.</string>
            <item>
             <spacer name="horizontalSpacer_20">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -2262,7 +2173,7 @@ or the communication between a tag and a reader.</string>
          <item>
           <layout class="QFormLayout" name="formLayout_6">
            <property name="rowWrapPolicy">
-            <enum>QFormLayout::WrapLongRows</enum>
+            <enum>QFormLayout::RowWrapPolicy::WrapLongRows</enum>
            </property>
            <property name="horizontalSpacing">
             <number>5</number>
@@ -2375,7 +2286,7 @@ or the communication between a tag and a reader.</string>
          <item>
           <spacer name="verticalSpacer_11">
            <property name="orientation">
-            <enum>Qt::Vertical</enum>
+            <enum>Qt::Orientation::Vertical</enum>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
@@ -2505,7 +2416,7 @@ or the communication between a tag and a reader.</string>
          <item>
           <spacer name="verticalSpacer_12">
            <property name="orientation">
-            <enum>Qt::Vertical</enum>
+            <enum>Qt::Orientation::Vertical</enum>
            </property>
            <property name="sizeHint" stdset="0">
             <size>
@@ -2549,10 +2460,10 @@ or the communication between a tag and a reader.</string>
              </sizepolicy>
             </property>
             <property name="verticalScrollBarPolicy">
-             <enum>Qt::ScrollBarAlwaysOn</enum>
+             <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOn</enum>
             </property>
             <property name="sizeAdjustPolicy">
-             <enum>QAbstractScrollArea::AdjustIgnored</enum>
+             <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
             </property>
             <property name="readOnly">
              <bool>true</bool>
@@ -2564,7 +2475,7 @@ or the communication between a tag and a reader.</string>
             <item>
              <widget class="QCheckBox" name="Raw_CMDHistoryBox">
               <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
+               <enum>Qt::LayoutDirection::LeftToRight</enum>
               </property>
               <property name="text">
                <string>History:</string>
@@ -2583,7 +2494,7 @@ or the communication between a tag and a reader.</string>
                </sizepolicy>
               </property>
               <property name="contextMenuPolicy">
-               <enum>Qt::PreventContextMenu</enum>
+               <enum>Qt::ContextMenuPolicy::PreventContextMenu</enum>
               </property>
              </widget>
             </item>
@@ -2596,7 +2507,7 @@ or the communication between a tag and a reader.</string>
                </sizepolicy>
               </property>
               <property name="layoutDirection">
-               <enum>Qt::LeftToRight</enum>
+               <enum>Qt::LayoutDirection::LeftToRight</enum>
               </property>
               <property name="text">
                <string>ClearHistory</string>
@@ -2610,7 +2521,7 @@ or the communication between a tag and a reader.</string>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_3">
           <property name="sizeConstraint">
-           <enum>QLayout::SetMaximumSize</enum>
+           <enum>QLayout::SizeConstraint::SetMaximumSize</enum>
           </property>
           <item>
            <widget class="QLineEdit" name="Raw_CMDEdit">
@@ -2660,7 +2571,7 @@ or the communication between a tag and a reader.</string>
         <item>
          <widget class="QScrollArea" name="Set_scrollArea">
           <property name="frameShape">
-           <enum>QFrame::NoFrame</enum>
+           <enum>QFrame::Shape::NoFrame</enum>
           </property>
           <property name="widgetResizable">
            <bool>true</bool>
@@ -2670,8 +2581,8 @@ or the communication between a tag and a reader.</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>1017</width>
-             <height>790</height>
+             <width>1138</width>
+             <height>1014</height>
             </rect>
            </property>
            <layout class="QHBoxLayout" name="horizontalLayout_36">
@@ -2699,14 +2610,14 @@ or the communication between a tag and a reader.</string>
                  <item>
                   <widget class="QLabel" name="Set_Client_GUIWorkingDirLabel">
                    <property name="textInteractionFlags">
-                    <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
+                    <set>Qt::TextInteractionFlag::LinksAccessibleByMouse|Qt::TextInteractionFlag::TextSelectableByMouse</set>
                    </property>
                   </widget>
                  </item>
                  <item>
                   <widget class="Line" name="line_9">
                    <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
+                    <enum>Qt::Orientation::Horizontal</enum>
                    </property>
                   </widget>
                  </item>
@@ -2738,7 +2649,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                  <item>
                   <widget class="Line" name="line_4">
                    <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
+                    <enum>Qt::Orientation::Horizontal</enum>
                    </property>
                   </widget>
                  </item>
@@ -2769,7 +2680,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                  <item>
                   <widget class="Line" name="line">
                    <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
+                    <enum>Qt::Orientation::Horizontal</enum>
                    </property>
                   </widget>
                  </item>
@@ -2800,7 +2711,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                  <item>
                   <widget class="Line" name="line_2">
                    <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
+                    <enum>Qt::Orientation::Horizontal</enum>
                    </property>
                   </widget>
                  </item>
@@ -2816,14 +2727,14 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                    <item>
                     <widget class="QComboBox" name="Set_Client_configFileBox">
                      <property name="sizeAdjustPolicy">
-                      <enum>QComboBox::AdjustToContents</enum>
+                      <enum>QComboBox::SizeAdjustPolicy::AdjustToContents</enum>
                      </property>
                     </widget>
                    </item>
                    <item>
                     <spacer name="horizontalSpacer_13">
                      <property name="orientation">
-                      <enum>Qt::Horizontal</enum>
+                      <enum>Qt::Orientation::Horizontal</enum>
                      </property>
                      <property name="sizeHint" stdset="0">
                       <size>
@@ -2855,7 +2766,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                  <item>
                   <widget class="Line" name="line_8">
                    <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
+                    <enum>Qt::Orientation::Horizontal</enum>
                    </property>
                   </widget>
                  </item>
@@ -2901,7 +2812,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                  <item>
                   <widget class="Line" name="line_3">
                    <property name="orientation">
-                    <enum>Qt::Horizontal</enum>
+                    <enum>Qt::Orientation::Horizontal</enum>
                    </property>
                   </widget>
                  </item>
@@ -2979,7 +2890,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                    <item>
                     <spacer name="horizontalSpacer_9">
                      <property name="orientation">
-                      <enum>Qt::Horizontal</enum>
+                      <enum>Qt::Orientation::Horizontal</enum>
                      </property>
                      <property name="sizeHint" stdset="0">
                       <size>
@@ -3025,10 +2936,10 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                        <number>100</number>
                       </property>
                       <property name="orientation">
-                       <enum>Qt::Horizontal</enum>
+                       <enum>Qt::Orientation::Horizontal</enum>
                       </property>
                       <property name="tickPosition">
-                       <enum>QSlider::TicksBelow</enum>
+                       <enum>QSlider::TickPosition::TicksBelow</enum>
                       </property>
                      </widget>
                     </item>
@@ -3212,7 +3123,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                    <bool>true</bool>
                   </property>
                   <property name="textInteractionFlags">
-                   <set>Qt::TextBrowserInteraction</set>
+                   <set>Qt::TextInteractionFlag::TextBrowserInteraction</set>
                   </property>
                  </widget>
                 </item>
@@ -3242,7 +3153,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
                    <bool>true</bool>
                   </property>
                   <property name="textInteractionFlags">
-                   <set>Qt::TextBrowserInteraction</set>
+                   <set>Qt::TextInteractionFlag::TextBrowserInteraction</set>
                   </property>
                  </widget>
                 </item>
@@ -3251,7 +3162,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
               <item>
                <spacer name="verticalSpacer_5">
                 <property name="orientation">
-                 <enum>Qt::Vertical</enum>
+                 <enum>Qt::Orientation::Vertical</enum>
                 </property>
                 <property name="sizeHint" stdset="0">
                  <size>
@@ -3266,10 +3177,10 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
             <item>
              <spacer name="horizontalSpacer_10">
               <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+               <enum>Qt::Orientation::Horizontal</enum>
               </property>
               <property name="sizeType">
-               <enum>QSizePolicy::Minimum</enum>
+               <enum>QSizePolicy::Policy::Minimum</enum>
               </property>
               <property name="sizeHint" stdset="0">
                <size>

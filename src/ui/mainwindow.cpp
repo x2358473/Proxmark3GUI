@@ -1,1735 +1,1769 @@
 ﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
 
-#include <QJsonDocument>
 #include <QDirIterator>
+#include <QJsonDocument>
 
-MainWindow::MainWindow(QWidget *parent):
-    QMainWindow(parent)
-    , ui(new Ui::MainWindow)
-{
-    ui->setupUi(this);
-    dockAllWindows = new QAction(tr("Dock all windows"), this);
-    myInfo = new QAction("wh201906", this);
-    currVersion = new QAction(tr("Ver: ") + QApplication::applicationVersion().section('.', 0, -2), this); // ignore the 4th version number
-    checkUpdate = new QAction(tr("Check Update"), this);
-    connect(dockAllWindows, &QAction::triggered, [ = ]()
-    {
-        for(int i = 0; i < dockList.size(); i++)
-            dockList[i]->setFloating(false);
-    });
-    connect(myInfo, &QAction::triggered, [ = ]()
-    {
-        QDesktopServices::openUrl(QUrl("https://github.com/wh201906"));
-    });
-    connect(checkUpdate, &QAction::triggered, [ = ]()
-    {
-        QDesktopServices::openUrl(QUrl("https://github.com/wh201906/Proxmark3GUI/releases"));
-    });
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent), ui(new Ui::MainWindow) {
+  ui->setupUi(this);
+  dockAllWindows = new QAction(tr("Dock all windows"), this);
+  myInfo = new QAction("wh201906", this);
+  currVersion = new QAction(
+      tr("Ver: ") + QApplication::applicationVersion().section('.', 0, -2),
+      this); // ignore the 4th version number
+  checkUpdate = new QAction(tr("Check Update"), this);
+  connect(dockAllWindows, &QAction::triggered, [=]() {
+    for (int i = 0; i < dockList.size(); i++)
+      dockList[i]->setFloating(false);
+  });
+  connect(myInfo, &QAction::triggered, [=]() {
+    QDesktopServices::openUrl(QUrl("https://github.com/wh201906"));
+  });
+  connect(checkUpdate, &QAction::triggered, [=]() {
+    QDesktopServices::openUrl(
+        QUrl("https://github.com/wh201906/Proxmark3GUI/releases"));
+  });
 
-    settings = new QSettings("GUIsettings.ini", QSettings::IniFormat);
-    settings->setIniCodec("UTF-8");
+  settings = new QSettings("GUIsettings.ini", QSettings::IniFormat);
+  settings->setIniCodec("UTF-8");
 
-    pm3Thread = new QThread(this);
-    connect(QApplication::instance(), &QApplication::aboutToQuit, pm3Thread, &QThread::quit);
-    pm3 = new PM3Process(pm3Thread);
-    connect(pm3Thread, &QThread::finished, pm3, &PM3Process::deleteLater);
-    pm3Thread->start();
-    pm3state = false;
-    clientWorkingDir = new QDir;
+  pm3Thread = new QThread(this);
+  connect(QApplication::instance(), &QApplication::aboutToQuit, pm3Thread,
+          &QThread::quit);
+  pm3 = new PM3Process(pm3Thread);
+  connect(pm3Thread, &QThread::finished, pm3, &PM3Process::deleteLater);
+  pm3Thread->start();
+  pm3state = false;
+  clientWorkingDir = new QDir;
 
-    util = new Util(this);
-    Util::setUI(ui);
-    mifare = new Mifare(ui, util, this);
-    lf = new LF(ui, util, this);
-    t55xxTab = new T55xxTab(util);
-    connect(lf, &LF::LFfreqConfChanged, this, &MainWindow::onLFfreqConfChanged);
-    connect(t55xxTab, &T55xxTab::setParentGUIState, this, &MainWindow::setState);
-    ui->funcTab->insertTab(2, t55xxTab, tr("T55xx"));
+  util = new Util(this);
+  Util::setUI(ui);
+  mifare = new Mifare(ui, util, this);
+  lf = new LF(ui, util, this);
+  t55xxTab = new T55xxTab(util);
+  connect(lf, &LF::LFfreqConfChanged, this, &MainWindow::onLFfreqConfChanged);
+  connect(t55xxTab, &T55xxTab::setParentGUIState, this, &MainWindow::setState);
+  ui->funcTab->insertTab(2, t55xxTab, tr("T55xx"));
 
-    keyEventFilter = new MyEventFilter(QEvent::KeyPress);
-    resizeEventFilter = new MyEventFilter(QEvent::Resize);
+  keyEventFilter = new MyEventFilter(QEvent::KeyPress);
+  resizeEventFilter = new MyEventFilter(QEvent::Resize);
 
-    // hide unused tabs
-//    ui->funcTab->removeTab(1);
-    ui->funcTab->removeTab(3);
+  // hide unused tabs
+  //    ui->funcTab->removeTab(1);
+  ui->funcTab->removeTab(3);
 
-    portSearchTimer = new QTimer(this);
-    portSearchTimer->setInterval(2000);
-    connect(portSearchTimer, &QTimer::timeout, this, &MainWindow::on_portSearchTimer_timeout);
-    portSearchTimer->start();
+  portSearchTimer = new QTimer(this);
+  portSearchTimer->setInterval(2000);
+  connect(portSearchTimer, &QTimer::timeout, this,
+          &MainWindow::on_portSearchTimer_timeout);
+  portSearchTimer->start();
 
-    contextMenu = new QMenu();
-    contextMenu->addAction(dockAllWindows);
-    contextMenu->addSeparator();
-    contextMenu->addAction(myInfo);
-    currVersion->setEnabled(false);
-    contextMenu->addAction(currVersion);
-    contextMenu->addAction(checkUpdate);
-
+  contextMenu = new QMenu();
+  contextMenu->addAction(dockAllWindows);
+  contextMenu->addSeparator();
+  contextMenu->addAction(myInfo);
+  currVersion->setEnabled(false);
+  contextMenu->addAction(currVersion);
+  contextMenu->addAction(checkUpdate);
 }
 
-MainWindow::~MainWindow()
-{
-    delete ui;
-    emit killPM3();
-    pm3Thread->exit(0);
-    pm3Thread->wait(5000);
-    delete pm3;
-    delete pm3Thread;
+MainWindow::~MainWindow() {
+  delete ui;
+  emit killPM3();
+  pm3Thread->exit(0);
+  pm3Thread->wait(5000);
+  delete pm3;
+  delete pm3Thread;
 }
 
-void MainWindow::loadConfig()
-{
-    QString filename = ui->Set_Client_configFileBox->currentData().toString();
-    if(filename == "(ext)")
-        filename = ui->Set_Client_configPathEdit->text();
-    qDebug() << "config file:" << filename;
-    QFile configList(filename);
-    if(!configList.open(QFile::ReadOnly | QFile::Text))
-    {
-        QMessageBox::information(this, tr("Info"), tr("Failed to load config file"));
-        return;
-    }
+void MainWindow::loadConfig() {
+  QString filename = ui->Set_Client_configFileBox->currentData().toString();
+  if (filename == "(ext)")
+    filename = ui->Set_Client_configPathEdit->text();
+  qDebug() << "config file:" << filename;
+  QFile configList(filename);
+  if (!configList.open(QFile::ReadOnly | QFile::Text)) {
+    QMessageBox::information(this, tr("Info"),
+                             tr("Failed to load config file"));
+    return;
+  }
 
-    QByteArray configData = configList.readAll();
-    QJsonDocument configJson(QJsonDocument::fromJson(configData));
-    mifare->setConfigMap(configJson.object()["mifare classic"].toObject().toVariantMap());
-    lf->setConfigMap(configJson.object()["lf"].toObject().toVariantMap());
-    t55xxTab->setConfigMap(configJson.object()["t55xx"].toObject().toVariantMap());
+  QByteArray configData = configList.readAll();
+  QJsonDocument configJson(QJsonDocument::fromJson(configData));
+  mifare->setConfigMap(
+      configJson.object()["mifare classic"].toObject().toVariantMap());
+  lf->setConfigMap(configJson.object()["lf"].toObject().toVariantMap());
+  t55xxTab->setConfigMap(
+      configJson.object()["t55xx"].toObject().toVariantMap());
 }
 
 void MainWindow::initUI() // will be called by main.app
 {
-    ui->retranslateUi(this);
-    uiInit();
-    signalInit();
-    setState(false);
-    dockInit();
+  ui->retranslateUi(this);
+  uiInit();
+  signalInit();
+  setState(false);
+  dockInit();
 }
 
 // ******************** basic functions ********************
 
-void MainWindow::on_portSearchTimer_timeout()
-{
-    QStringList newPortList; // for actural port name
-    QStringList newPortNameList; // for display name
-    const QString hint = " *";
+void MainWindow::on_portSearchTimer_timeout() {
+  QStringList newPortList;     // for actural port name
+  QStringList newPortNameList; // for display name
+  const QString hint = " *";
 
-    foreach(const QSerialPortInfo &info, QSerialPortInfo::availablePorts())
-    {
-//        qDebug() << info.isNull() << info.portName() << info.description() << info.serialNumber() << info.manufacturer();
-        if(!info.isNull())
-        {
-            QString idString = (info.description() + info.serialNumber() + info.manufacturer()).toLower();
-            QString portName = info.portName();
+  foreach (const QSerialPortInfo &info, QSerialPortInfo::availablePorts()) {
+    //        qDebug() << info.isNull() << info.portName() << info.description()
+    //        << info.serialNumber() << info.manufacturer();
+    if (!info.isNull()) {
+      QString idString =
+          (info.description() + info.serialNumber() + info.manufacturer())
+              .toLower();
+      QString portName = info.portName();
 
-            newPortList << portName;
-            if(info.hasVendorIdentifier() && info.hasProductIdentifier())
-            {
-                quint16 vid = info.vendorIdentifier();
-                quint16 pid = info.productIdentifier();
-                if(vid == 0x9AC4 && pid == 0x4B8F)
-                    portName += hint;
-                else if(vid == 0x2D2D && pid == 0x504D)
-                    portName += hint;
-            }
-            else if(idString.contains("proxmark") || idString.contains("iceman"))
-                portName += hint;
-            newPortNameList << portName;
-        }
+      newPortList << portName;
+      if (info.hasVendorIdentifier() && info.hasProductIdentifier()) {
+        quint16 vid = info.vendorIdentifier();
+        quint16 pid = info.productIdentifier();
+        if (vid == 0x9AC4 && pid == 0x4B8F)
+          portName += hint;
+        else if (vid == 0x2D2D && pid == 0x504D)
+          portName += hint;
+      } else if (idString.contains("proxmark") || idString.contains("iceman"))
+        portName += hint;
+      newPortNameList << portName;
     }
-    if(newPortList != portList) // update PM3_portBox when available ports changed
-    {
-        portList = newPortList;
-        ui->PM3_portBox->clear();
-        int selectId = -1;
-        for(int i = 0; i < portList.size(); i++)
-        {
-            ui->PM3_portBox->addItem(newPortNameList[i], newPortList[i]);
-            if(selectId == -1 && newPortNameList[i].endsWith(hint))
-                selectId = i;
-        }
-        if(selectId != -1)
-            ui->PM3_portBox->setCurrentIndex(selectId);
+  }
+  if (newPortList !=
+      portList) // update PM3_portBox when available ports changed
+  {
+    portList = newPortList;
+    ui->PM3_portBox->clear();
+    int selectId = -1;
+    for (int i = 0; i < portList.size(); i++) {
+      ui->PM3_portBox->addItem(newPortNameList[i], newPortList[i]);
+      if (selectId == -1 && newPortNameList[i].endsWith(hint))
+        selectId = i;
     }
+    if (selectId != -1)
+      ui->PM3_portBox->setCurrentIndex(selectId);
+  }
 }
 
-void MainWindow::on_PM3_connectButton_clicked()
-{
-    qDebug() << "Main:" << QThread::currentThread();
+void MainWindow::on_PM3_connectButton_clicked() {
+  qDebug() << "Main:" << QThread::currentThread();
 
-    const QComboBox* portBox = ui->PM3_portBox;
-    QString port;
-    if(portBox->currentText() == portBox->itemText(portBox->currentIndex()))
-        // in the list
-        port = portBox->currentData().toString();
-    else
-        // not in the list
-        port = portBox->currentText();
-    qDebug() << "port:" << port;
-    QString startArgs = ui->Set_Client_startArgsEdit->text();
-    QString clientPath = ui->PM3_pathBox->currentText();
-    QFileInfo clientFile(clientPath);
-    bool clientExist = false;
+  const QComboBox *portBox = ui->PM3_portBox;
+  QString port;
+  if (portBox->currentText() == portBox->itemText(portBox->currentIndex()))
+    // in the list
+    port = portBox->currentData().toString();
+  else
+    // not in the list
+    port = portBox->currentText();
+  qDebug() << "port:" << port;
+  QString startArgs = ui->Set_Client_startArgsEdit->text();
+  QString clientPath = ui->PM3_pathBox->currentText();
+  QFileInfo clientFile(clientPath);
+  bool clientExist = false;
 
-    QStringList extList = {""};
+  QStringList extList = {""};
 #ifdef Q_OS_WIN
-    if(clientFile.suffix().isEmpty())
-    {
-        QString pathExt = QProcessEnvironment::systemEnvironment().value("pathext");
-        extList += pathExt.split(";", Qt::SkipEmptyParts);
-        if(extList.size() == 1)
-            extList += ".exe";
-    }
+  if (clientFile.suffix().isEmpty()) {
+    QString pathExt = QProcessEnvironment::systemEnvironment().value("pathext");
+    extList += pathExt.split(";", Qt::SkipEmptyParts);
+    if (extList.size() == 1)
+      extList += ".exe";
+  }
 #endif
-    for(const QString& ext : extList)
-    {
-        QFileInfo executable(clientFile.filePath() + ext);
-        if(executable.isFile())
-        {
-            clientExist = true;
-            break;
-        }
+  for (const QString &ext : extList) {
+    QFileInfo executable(clientFile.filePath() + ext);
+    if (executable.isFile()) {
+      clientExist = true;
+      break;
     }
+  }
 
-    if(!clientExist)
-    {
-        QMessageBox::information(this, tr("Info"), tr("The client path is invalid"), QMessageBox::Ok);
-        return;
-    }
+  if (!clientExist) {
+    QMessageBox::information(this, tr("Info"), tr("The client path is invalid"),
+                             QMessageBox::Ok);
+    return;
+  }
 
-    // on RRG repo, if no port is specified, the client will search the available port
-    if(port == "" && startArgs.contains("<port>")) // has <port>, no port
-    {
-        QMessageBox::information(this, tr("Info"), tr("Plz choose a port first"), QMessageBox::Ok);
-        return;
-    }
+  // on RRG repo, if no port is specified, the client will search the available
+  // port
+  if (port == "" && startArgs.contains("<port>")) // has <port>, no port
+  {
+    QMessageBox::information(this, tr("Info"), tr("Plz choose a port first"),
+                             QMessageBox::Ok);
+    return;
+  }
 
-    if(!startArgs.contains("<port>")) // no <port>
-        port = ""; // a symbol
+  if (!startArgs.contains("<port>")) // no <port>
+    port = "";                       // a symbol
 
-    QStringList args = startArgs.replace("<port>", port).split(' ');
-    addClientPath(clientPath);
+  QStringList args = startArgs.replace("<port>", port).split(' ');
+  addClientPath(clientPath);
 
-    QProcess envSetProcess;
-    QString envScriptPath = ui->Set_Client_envScriptEdit->text();
-    if(envScriptPath.contains("<client dir>"))
-        envScriptPath.replace("<client dir>", clientFile.absoluteDir().absolutePath());
+  QProcess envSetProcess;
+  QString envScriptPath = ui->Set_Client_envScriptEdit->text();
+  if (envScriptPath.contains("<client dir>"))
+    envScriptPath.replace("<client dir>",
+                          clientFile.absoluteDir().absolutePath());
 
-    QFileInfo envScript(envScriptPath);
-    if(envScript.exists())
-    {
-        qDebug() << envScript.absoluteFilePath();
-        // use the shell session to keep the environment then read it
+  QFileInfo envScript(envScriptPath);
+  if (envScript.exists()) {
+    qDebug() << envScript.absoluteFilePath();
+    // use the shell session to keep the environment then read it
 #ifdef Q_OS_WIN
-        // cmd /c "<path>">>nul && set
-        envSetProcess.start("cmd", {}, QProcess::Unbuffered | QProcess::ReadWrite | QProcess::Text);
-        envSetProcess.write(QString("\"" + envScript.absoluteFilePath() + "\">>nul\n").toLatin1());
-        envSetProcess.waitForReadyRead(10000);
-        envSetProcess.readAll();
-        envSetProcess.write("set\n");
+    // cmd /c "<path>">>nul && set
+    envSetProcess.start(
+        "cmd", {}, QProcess::Unbuffered | QProcess::ReadWrite | QProcess::Text);
+    envSetProcess.write(
+        QString("\"" + envScript.absoluteFilePath() + "\">>nul\n").toLatin1());
+    envSetProcess.waitForReadyRead(10000);
+    envSetProcess.readAll();
+    envSetProcess.write("set\n");
 #else
-        // need implementation(or test if space works)
-        // sh -c '. "<path>">>/dev/null && env'
-        envSetProcess.start("sh -c \' . \"" + envScript.absoluteFilePath() + "\">>/dev/null && env");
+    // need implementation(or test if space works)
+    // sh -c '. "<path>">>/dev/null && env'
+    envSetProcess.start("sh -c \' . \"" + envScript.absoluteFilePath() +
+                        "\">>/dev/null && env");
 #endif
-        envSetProcess.waitForReadyRead(10000);
-        QString envSetResult = QString(envSetProcess.readAll());
-#if (QT_VERSION <= QT_VERSION_CHECK(5,14,0))
-        clientEnv = envSetResult.split("\n", QString::SkipEmptyParts);
+    envSetProcess.waitForReadyRead(10000);
+    QString envSetResult = QString(envSetProcess.readAll());
+#if (QT_VERSION <= QT_VERSION_CHECK(5, 14, 0))
+    clientEnv = envSetResult.split("\n", QString::SkipEmptyParts);
 #else
-        clientEnv = envSetResult.split("\n", Qt::SkipEmptyParts);
+    clientEnv = envSetResult.split("\n", Qt::SkipEmptyParts);
 #endif
-        if(clientEnv.size() > 2) // the first element is "set" and the last element is the current path
-        {
-            clientEnv.removeFirst();
-            clientEnv.removeLast();
-            emit setProcEnv(&clientEnv);
-        }
-//      qDebug() << "Get Env List" << clientEnv;
-    }
-    else
-        clientEnv.clear();
-
-    clientWorkingDir->setPath(QApplication::applicationDirPath());
-    qDebug() << clientWorkingDir->absolutePath();
-    clientWorkingDir->mkpath(ui->Set_Client_workingDirEdit->text());
-    qDebug() << clientWorkingDir->absolutePath();
-    clientWorkingDir->cd(ui->Set_Client_workingDirEdit->text());
-    qDebug() << clientWorkingDir->absolutePath();
-    emit setWorkingDir(clientWorkingDir->absolutePath());
-
-    loadConfig();
-    emit connectPM3(clientPath, args);
-    if(port != "" && !keepClientActive)
-        emit setSerialListener(port, true);
-    else if(!keepClientActive)
-        emit setSerialListener(false);
-
-    envSetProcess.kill();
-}
-
-void MainWindow::onPM3ErrorOccurred(QProcess::ProcessError error)
-{
-    qDebug() << "PM3 Error:" << error << pm3->errorString();
-    if(error == QProcess::FailedToStart)
-        QMessageBox::information(this, tr("Info"), tr("Failed to start the client") + "\n" + pm3->errorString());
-}
-
-void MainWindow::onPM3HWConnectFailed()
-{
-    QMessageBox::information(this, tr("Info"), tr("Failed to connect to the hardware"));
-}
-
-void MainWindow::onPM3StateChanged(bool st, const QString& info)
-{
-    pm3state = st;
-    setState(st);
-    if(st == true)
+    if (clientEnv.size() > 2) // the first element is "set" and the last element
+                              // is the current path
     {
-        portSearchTimer->stop();
-        setStatusBar(PM3VersionBar, info);
-        setStatusBar(connectStatusBar, tr("Connected"));
+      clientEnv.removeFirst();
+      clientEnv.removeLast();
+      emit setProcEnv(&clientEnv);
     }
-    else
-    {
-        portSearchTimer->start();
-        setStatusBar(PM3VersionBar, "");
-        setStatusBar(connectStatusBar, tr("Not Connected"));
-    }
-}
+    //      qDebug() << "Get Env List" << clientEnv;
+  } else
+    clientEnv.clear();
 
-void MainWindow::on_PM3_disconnectButton_clicked()
-{
-    emit killPM3();
+  clientWorkingDir->setPath(QApplication::applicationDirPath());
+  qDebug() << clientWorkingDir->absolutePath();
+  clientWorkingDir->mkpath(ui->Set_Client_workingDirEdit->text());
+  qDebug() << clientWorkingDir->absolutePath();
+  clientWorkingDir->cd(ui->Set_Client_workingDirEdit->text());
+  qDebug() << clientWorkingDir->absolutePath();
+  emit setWorkingDir(clientWorkingDir->absolutePath());
+
+  loadConfig();
+  emit connectPM3(clientPath, args);
+  if (port != "" && !keepClientActive)
+    emit setSerialListener(port, true);
+  else if (!keepClientActive)
     emit setSerialListener(false);
+
+  envSetProcess.kill();
 }
 
-void MainWindow::refreshOutput(const QString& output)
-{
-//    qDebug() << "MainWindow::refresh:" << output;
-    ui->Raw_outputEdit->moveCursor(QTextCursor::End);
-    ui->Raw_outputEdit->insertPlainText(output);
-    ui->Raw_outputEdit->moveCursor(QTextCursor::End);
+void MainWindow::onPM3ErrorOccurred(QProcess::ProcessError error) {
+  qDebug() << "PM3 Error:" << error << pm3->errorString();
+  if (error == QProcess::FailedToStart)
+    QMessageBox::information(this, tr("Info"),
+                             tr("Failed to start the client") + "\n" +
+                                 pm3->errorString());
 }
 
-void MainWindow::on_stopButton_clicked()
-{
-    if(!pm3state)
-        on_PM3_disconnectButton_clicked();
-    else
-    {
-        on_PM3_disconnectButton_clicked();
-        for(int i = 0; i < 10; i++)
-        {
-            util->delay(200);
-            if(!pm3state)
-                break;
-        }
-        emit reconnectPM3();
-        emit setSerialListener(!keepClientActive);
+void MainWindow::onPM3HWConnectFailed() {
+  QMessageBox::information(this, tr("Info"),
+                           tr("Failed to connect to the hardware"));
+}
+
+void MainWindow::onPM3StateChanged(bool st, const QString &info) {
+  pm3state = st;
+  setState(st);
+  if (st == true) {
+    portSearchTimer->stop();
+    setStatusBar(PM3VersionBar, info);
+    setStatusBar(connectStatusBar, tr("Connected"));
+  } else {
+    portSearchTimer->start();
+    setStatusBar(PM3VersionBar, "");
+    setStatusBar(connectStatusBar, tr("Not Connected"));
+  }
+}
+
+void MainWindow::on_PM3_disconnectButton_clicked() {
+  emit killPM3();
+  emit setSerialListener(false);
+}
+
+void MainWindow::refreshOutput(const QString &output) {
+  // 原有的控制台文本插入逻辑
+  ui->Raw_outputEdit->moveCursor(QTextCursor::End);
+  ui->Raw_outputEdit->insertPlainText(output);
+  ui->Raw_outputEdit->moveCursor(QTextCursor::End);
+
+  // ==========================================
+  // 智能提示逻辑区
+  // ==========================================
+
+  // 1. 三代卡 (FM11RF08S) 检测
+  if (output.contains("Hint: Try `script run fm11rf08s_recovery.py",
+                      Qt::CaseInsensitive)) {
+    QMessageBox::information(
+        this, tr("提示"),
+        tr("读取到三代无漏洞卡 (FM11RF08S)！\n请点击【解三代卡】进行破解。"));
+  }
+
+  // 2. CUID 弱随机数检测
+  // if (output.contains("[+] Prng....... weak", Qt::CaseInsensitive)) {
+  //   QString allText = ui->Raw_outputEdit->toPlainText();
+  //   if (allText.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
+  //     QMessageBox::information(
+  //         this, tr("破解建议"),
+  //         tr("发现 Gen 2 / CUID 魔术卡，且 PRNG 为 weak（弱随机数）。\n\n👉 "
+  //            "建议：使用【Nested (知一求全)】或【Autopwn】进行破解。"));
+  //   }
+  // }
+
+  // 3. CUID 静态随机数检测
+  // if (output.contains("[+] Static nonce... yes", Qt::CaseInsensitive) ||
+  //     output.contains("[#] Static nonce.......", Qt::CaseInsensitive)) {
+  //   QString allText = ui->Raw_outputEdit->toPlainText();
+  //   if (allText.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
+  //     QMessageBox::information(
+  //         this, tr("破解建议"),
+  //         tr("发现 Gen 2 / CUID 魔术卡，且存在 Static "
+  //            "nonce（静态随机数）特征。\n\n👉 建议：使用【Nested (勾选 "
+  //            "Static)】或【Hardnested】进行破解。"));
+  //   }
+  // }
+
+
+  // 1. 抓取并加载密钥文件 (key.bin)
+  // ==========================================
+  // 自动抓取与加载文件逻辑区 (兼容 rf08s 与 autopwn)
+  // ==========================================
+
+  // 1. 抓取并加载密钥文件 (兼容 key.bin, key-1.bin, key-002.bin 等)
+  QRegularExpression keyRegex("(?:saved to file|dumped to)\\s+[`']?([^`'\\n\\r]+-key(?:-[0-9]+)?\\.bin)[`']?", QRegularExpression::CaseInsensitiveOption);
+  QRegularExpressionMatch keyMatch = keyRegex.match(output);
+  if (keyMatch.hasMatch()) {
+      QString filePath = keyMatch.captured(1).trimmed();
+
+      QFileInfo fileInfo(filePath);
+      QString fullPath = fileInfo.isAbsolute() ? filePath : clientWorkingDir->absolutePath() + "/" + filePath;
+
+      // 等待 500ms 确保文件写入完成
+      util->delay(500);
+
+      if (mifare->data_loadKeyFile(fullPath)) {
+          ui->funcTab->setCurrentIndex(0);
+          QMessageBox::information(this, tr("成功"), tr("密钥已破解完成！\n自动加载密钥文件：\n") + fileInfo.fileName());
+      }
+  }
+
+  // 2. 抓取并加载数据文件 (兼容 dump.bin, dump-002.bin 等)
+  QRegularExpression dumpRegex("(?:saved to file|dumped to|to binary file)\\s+[`']?([^`'\\n\\r]+-dump(?:-[0-9]+)?\\.bin)[`']?", QRegularExpression::CaseInsensitiveOption);
+  QRegularExpressionMatch dumpMatch = dumpRegex.match(output);
+  if (dumpMatch.hasMatch()) {
+      QString filePath = dumpMatch.captured(1).trimmed();
+
+      QFileInfo fileInfo(filePath);
+      QString fullPath = fileInfo.isAbsolute() ? filePath : clientWorkingDir->absolutePath() + "/" + filePath;
+
+      util->delay(500); // 确保文件写入硬盘
+
+      if (mifare->data_loadDataFile(fullPath)) {
+          // 👉 核心神技：调用底层的 Data -> Key 功能，从加载的数据中精准提取密码到左侧面板
+          mifare->data_data2Key();
+
+          // 自动切回 Mifare 面板并弹窗提示成功
+          ui->funcTab->setCurrentIndex(0);
+          QMessageBox::information(this, tr("破解成功"), tr("卡片数据破解完成！\n已自动加载 Dump 文件并精准提取了所有密码。"));
+      }
+  }
+}
+
+void MainWindow::on_stopButton_clicked() {
+  if (!pm3state)
+    on_PM3_disconnectButton_clicked();
+  else {
+    on_PM3_disconnectButton_clicked();
+    for (int i = 0; i < 10; i++) {
+      util->delay(200);
+      if (!pm3state)
+        break;
     }
+    emit reconnectPM3();
+    emit setSerialListener(!keepClientActive);
+  }
 }
 // *********************************************************
 
 // ******************** raw command ********************
 
-void MainWindow::on_Raw_CMDEdit_textChanged(const QString &arg1)
-{
-    stashedCMDEditText = arg1;
+void MainWindow::on_Raw_CMDEdit_textChanged(const QString &arg1) {
+  stashedCMDEditText = arg1;
 }
 
-void MainWindow::on_Raw_sendCMDButton_clicked()
-{
-    util->execCMD(ui->Raw_CMDEdit->text());
-    refreshCMD(ui->Raw_CMDEdit->text());
+void MainWindow::on_Raw_sendCMDButton_clicked() {
+  util->execCMD(ui->Raw_CMDEdit->text());
+  refreshCMD(ui->Raw_CMDEdit->text());
 }
 
-void MainWindow::on_Raw_clearOutputButton_clicked()
-{
-    ui->Raw_outputEdit->clear();
+void MainWindow::on_Raw_clearOutputButton_clicked() {
+  ui->Raw_outputEdit->clear();
 }
 
-void MainWindow::on_Raw_CMDHistoryBox_stateChanged(int arg1)
-{
-    if(arg1 == Qt::Checked)
-    {
-        ui->Raw_CMDHistoryWidget->setVisible(true);
-        ui->Raw_clearHistoryButton->setVisible(true);
-        ui->Raw_CMDHistoryBox->setText(tr("History:"));
-    }
-    else
-    {
-        ui->Raw_CMDHistoryWidget->setVisible(false);
-        ui->Raw_clearHistoryButton->setVisible(false);
-        ui->Raw_CMDHistoryBox->setText("");
-    }
+void MainWindow::on_Raw_CMDHistoryBox_stateChanged(int arg1) {
+  if (arg1 == Qt::Checked) {
+    ui->Raw_CMDHistoryWidget->setVisible(true);
+    ui->Raw_clearHistoryButton->setVisible(true);
+    ui->Raw_CMDHistoryBox->setText(tr("History:"));
+  } else {
+    ui->Raw_CMDHistoryWidget->setVisible(false);
+    ui->Raw_clearHistoryButton->setVisible(false);
+    ui->Raw_CMDHistoryBox->setText("");
+  }
 }
 
-void MainWindow::on_Raw_clearHistoryButton_clicked()
-{
-    ui->Raw_CMDHistoryWidget->clear();
+void MainWindow::on_Raw_clearHistoryButton_clicked() {
+  ui->Raw_CMDHistoryWidget->clear();
 }
 
-void MainWindow::on_Raw_CMDHistoryWidget_itemDoubleClicked(QListWidgetItem *item)
-{
-    ui->Raw_CMDEdit->setText(item->text());
-    ui->Raw_CMDEdit->setFocus();
+void MainWindow::on_Raw_CMDHistoryWidget_itemDoubleClicked(
+    QListWidgetItem *item) {
+  ui->Raw_CMDEdit->setText(item->text());
+  ui->Raw_CMDEdit->setFocus();
 }
 
 void MainWindow::sendMSG() // send command when pressing Enter
 {
-    if(ui->Raw_CMDEdit->hasFocus())
-        on_Raw_sendCMDButton_clicked();
+  if (ui->Raw_CMDEdit->hasFocus())
+    on_Raw_sendCMDButton_clicked();
 }
 
-
-void MainWindow::refreshCMD(const QString& cmd)
-{
-    ui->Raw_CMDEdit->blockSignals(true);
-    ui->Raw_CMDEdit->setText(cmd);
-    if(cmd != "" && (ui->Raw_CMDHistoryWidget->count() == 0 || ui->Raw_CMDHistoryWidget->item(ui->Raw_CMDHistoryWidget->count() - 1)->text() != cmd))
-        ui->Raw_CMDHistoryWidget->addItem(cmd);
-    stashedCMDEditText = cmd;
-    stashedIndex = -1;
-    ui->Raw_CMDEdit->blockSignals(false);
+void MainWindow::refreshCMD(const QString &cmd) {
+  ui->Raw_CMDEdit->blockSignals(true);
+  ui->Raw_CMDEdit->setText(cmd);
+  if (cmd != "" &&
+      (ui->Raw_CMDHistoryWidget->count() == 0 ||
+       ui->Raw_CMDHistoryWidget->item(ui->Raw_CMDHistoryWidget->count() - 1)
+               ->text() != cmd))
+    ui->Raw_CMDHistoryWidget->addItem(cmd);
+  stashedCMDEditText = cmd;
+  stashedIndex = -1;
+  ui->Raw_CMDEdit->blockSignals(false);
 }
 
-void MainWindow::on_Raw_keyPressed(QObject* obj_addr, QEvent& event)
-{
-    if(event.type() == QEvent::KeyPress)
-    {
-        QKeyEvent& keyEvent = static_cast<QKeyEvent&>(event);
-        if(obj_addr == ui->Raw_CMDEdit)
-        {
-            if(keyEvent.key() == Qt::Key_Up)
-            {
-                if(stashedIndex > 0)
-                    stashedIndex--;
-                else if(stashedIndex == -1)
-                    stashedIndex = ui->Raw_CMDHistoryWidget->count() - 1;
-            }
-            else if(keyEvent.key() == Qt::Key_Down)
-            {
-                if(stashedIndex < ui->Raw_CMDHistoryWidget->count() - 1 && stashedIndex != -1)
-                    stashedIndex++;
-                else if(stashedIndex == ui->Raw_CMDHistoryWidget->count() - 1)
-                    stashedIndex = -1;
-            }
-            if(keyEvent.key() == Qt::Key_Up || keyEvent.key() == Qt::Key_Down)
-            {
-                ui->Raw_CMDEdit->blockSignals(true);
-                if(stashedIndex == -1)
-                    ui->Raw_CMDEdit->setText(stashedCMDEditText);
-                else
-                    ui->Raw_CMDEdit->setText(ui->Raw_CMDHistoryWidget->item(stashedIndex)->text());
-                ui->Raw_CMDEdit->blockSignals(false);
-            }
-        }
-        else if(obj_addr == ui->Raw_outputEdit)
-        {
-            if(keyEvent.key() == Qt::Key_Up || keyEvent.key() == Qt::Key_Down)
-                ui->Raw_CMDEdit->setFocus();
-        }
+void MainWindow::on_Raw_keyPressed(QObject *obj_addr, QEvent &event) {
+  if (event.type() == QEvent::KeyPress) {
+    QKeyEvent &keyEvent = static_cast<QKeyEvent &>(event);
+    if (obj_addr == ui->Raw_CMDEdit) {
+      if (keyEvent.key() == Qt::Key_Up) {
+        if (stashedIndex > 0)
+          stashedIndex--;
+        else if (stashedIndex == -1)
+          stashedIndex = ui->Raw_CMDHistoryWidget->count() - 1;
+      } else if (keyEvent.key() == Qt::Key_Down) {
+        if (stashedIndex < ui->Raw_CMDHistoryWidget->count() - 1 &&
+            stashedIndex != -1)
+          stashedIndex++;
+        else if (stashedIndex == ui->Raw_CMDHistoryWidget->count() - 1)
+          stashedIndex = -1;
+      }
+      if (keyEvent.key() == Qt::Key_Up || keyEvent.key() == Qt::Key_Down) {
+        ui->Raw_CMDEdit->blockSignals(true);
+        if (stashedIndex == -1)
+          ui->Raw_CMDEdit->setText(stashedCMDEditText);
+        else
+          ui->Raw_CMDEdit->setText(
+              ui->Raw_CMDHistoryWidget->item(stashedIndex)->text());
+        ui->Raw_CMDEdit->blockSignals(false);
+      }
+    } else if (obj_addr == ui->Raw_outputEdit) {
+      if (keyEvent.key() == Qt::Key_Up || keyEvent.key() == Qt::Key_Down)
+        ui->Raw_CMDEdit->setFocus();
     }
+  }
 }
 // *****************************************************
 
 // ******************** mifare ********************
-void MainWindow::on_MF_keyWidget_resized(QObject* obj_addr, QEvent& event)
-{
-    if(obj_addr == ui->MF_keyWidget && event.type() == QEvent::Resize)
+void MainWindow::on_MF_keyWidget_resized(QObject *obj_addr, QEvent &event) {
+  if (obj_addr == ui->MF_keyWidget && event.type() == QEvent::Resize) {
+    QTableWidget *widget = (QTableWidget *)obj_addr;
+    int keyItemWidth = widget->width();
+    keyItemWidth -= widget->verticalScrollBar()->width();
+    keyItemWidth -= 2 * widget->frameWidth();
+    keyItemWidth -= widget->horizontalHeader()->sectionSize(0);
+    widget->horizontalHeader()->resizeSection(1, keyItemWidth / 2);
+    widget->horizontalHeader()->resizeSection(2, keyItemWidth / 2);
+  }
+}
+
+void MainWindow::MF_onMFCardTypeChanged(int id, bool st) {
+  MFCardTypeBtnGroup->blockSignals(true);
+  qDebug() << id << MFCardTypeBtnGroup->checkedId();
+  if (!st) {
+    int result;
+    if (id > MFCardTypeBtnGroup
+                 ->checkedId()) // id is specified in uiInit() with a proper
+                                // order, so I can compare the size by id.
     {
-        QTableWidget* widget = (QTableWidget*)obj_addr;
-        int keyItemWidth = widget->width();
-        keyItemWidth -= widget->verticalScrollBar()->width();
-        keyItemWidth -= 2 * widget->frameWidth();
-        keyItemWidth -= widget->horizontalHeader()->sectionSize(0);
-        widget->horizontalHeader()->resizeSection(1, keyItemWidth / 2);
-        widget->horizontalHeader()->resizeSection(2, keyItemWidth / 2);
+      result = QMessageBox::question(
+          this, tr("Info"),
+          tr("Some of the data and key will be cleared.") + "\n" +
+              tr("Continue?"),
+          QMessageBox::Yes | QMessageBox::No);
+    } else {
+      result = QMessageBox::Yes;
     }
-}
-
-void MainWindow::MF_onMFCardTypeChanged(int id, bool st)
-{
-    MFCardTypeBtnGroup->blockSignals(true);
-    qDebug() << id << MFCardTypeBtnGroup->checkedId();
-    if(!st)
-    {
-        int result;
-        if(id > MFCardTypeBtnGroup->checkedId()) // id is specified in uiInit() with a proper order, so I can compare the size by id.
-        {
-            result = QMessageBox::question(this, tr("Info"), tr("Some of the data and key will be cleared.") + "\n" + tr("Continue?"), QMessageBox::Yes | QMessageBox::No);
-        }
-        else
-        {
-            result = QMessageBox::Yes;
-        }
-        if(result == QMessageBox::Yes)
-        {
-            qDebug() << "Yes";
-            mifare->setCardType(MFCardTypeBtnGroup->checkedId());
-            MF_widgetReset();
-            mifare->data_syncWithDataWidget();
-            mifare->data_syncWithKeyWidget();
-        }
-        else
-        {
-            qDebug() << "No";
-            MFCardTypeBtnGroup->button(id)->setChecked(true);
-        }
+    if (result == QMessageBox::Yes) {
+      qDebug() << "Yes";
+      mifare->setCardType(MFCardTypeBtnGroup->checkedId());
+      MF_widgetReset();
+      mifare->data_syncWithDataWidget();
+      mifare->data_syncWithKeyWidget();
+    } else {
+      qDebug() << "No";
+      MFCardTypeBtnGroup->button(id)->setChecked(true);
     }
-    MFCardTypeBtnGroup->blockSignals(false);
+  }
+  MFCardTypeBtnGroup->blockSignals(false);
 }
 
-void MainWindow::on_MF_selectAllBox_stateChanged(int arg1)
-{
-    ui->MF_dataWidget->blockSignals(true);
-    ui->MF_selectAllBox->blockSignals(true);
-    ui->MF_selectTrailerBox->blockSignals(true);
-    if(arg1 == Qt::PartiallyChecked)
-    {
-        ui->MF_selectAllBox->setTristate(false);
-        ui->MF_selectAllBox->setCheckState(Qt::Checked);
-    }
-    for(int i = 0; i < mifare->cardType.block_size; i++)
-    {
-        ui->MF_dataWidget->item(i, 1)->setCheckState(ui->MF_selectAllBox->checkState());
-    }
-    for(int i = 0; i < mifare->cardType.sector_size; i++)
-    {
-        ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)->setCheckState(ui->MF_selectAllBox->checkState());
-    }
-    ui->MF_selectTrailerBox->setCheckState(ui->MF_selectAllBox->checkState());
-    ui->MF_dataWidget->blockSignals(false);
-    ui->MF_selectAllBox->blockSignals(false);
-    ui->MF_selectTrailerBox->blockSignals(false);
-}
-
-
-void MainWindow::on_MF_selectTrailerBox_stateChanged(int arg1)
-{
-    int selectedSubBlocks = 0;
-
-    ui->MF_dataWidget->blockSignals(true);
-    ui->MF_selectAllBox->blockSignals(true);
-    ui->MF_selectTrailerBox->blockSignals(true);
-    if(arg1 == Qt::PartiallyChecked)
-    {
-        ui->MF_selectTrailerBox->setTristate(false);
-        ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
-    }
-    for(int i = 0; i < mifare->cardType.sector_size; i++)
-    {
-        ui->MF_dataWidget->item(mifare->cardType.blks[i] + mifare->cardType.blk[i] - 1, 1)->setCheckState(ui->MF_selectTrailerBox->checkState());
-        selectedSubBlocks = 0;
-        for(int j = 0; j < mifare->cardType.blk[i]; j++)
-        {
-            if(ui->MF_dataWidget->item(j + mifare->cardType.blks[i], 1)->checkState() == Qt::Checked)
-                selectedSubBlocks++;
-        }
-        if(selectedSubBlocks == 0)
-        {
-            ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)->setCheckState(Qt::Unchecked);
-        }
-        else if(selectedSubBlocks == mifare->cardType.blk[i])
-        {
-            ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)->setCheckState(Qt::Checked);
-        }
-        else
-        {
-            ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)->setCheckState(Qt::PartiallyChecked);
-        }
-    }
-
-    ui->MF_dataWidget->blockSignals(false);
-    ui->MF_selectAllBox->blockSignals(false);
-    ui->MF_selectTrailerBox->blockSignals(false);
-}
-
-
-void MainWindow::on_MF_data2KeyButton_clicked()
-{
-    mifare->data_data2Key();
-}
-
-void MainWindow::on_MF_key2DataButton_clicked()
-{
-    mifare->data_key2Data();
-}
-
-void MainWindow::on_MF_fillKeysButton_clicked()
-{
-    mifare->data_fillKeys();
-}
-
-void MainWindow::on_MF_trailerDecoderButton_clicked()
-{
-    decDialog = new MF_trailerDecoderDialog(this);
-    decDialog->show();
-}
-
-void MainWindow::on_MF_dataWidget_itemChanged(QTableWidgetItem *item)
-{
-    ui->MF_dataWidget->blockSignals(true);
-    ui->MF_selectAllBox->blockSignals(true);
-    ui->MF_selectTrailerBox->blockSignals(true);
-    if(item->column() == 0)
-    {
-        int selectedSectors = 0;
-        for(int i = 0; i < mifare->cardType.blk[Mifare::data_b2s(item->row())]; i++)
-        {
-            ui->MF_dataWidget->item(i + item->row(), 1)->setCheckState(item->checkState());
-            qDebug() << i << mifare->cardType.blk[item->row()] << i + item->row() << ui->MF_dataWidget->item(i + item->row(), 1)->text();
-        }
-        for(int i = 0; i < mifare->cardType.sector_size; i++)
-        {
-            if(ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)->checkState() == Qt::Checked)
-            {
-                selectedSectors++;
-            }
-        }
-        if(selectedSectors == 0)
-        {
-            ui->MF_selectAllBox->setCheckState(Qt::Unchecked);
-            ui->MF_selectTrailerBox->setCheckState(Qt::Unchecked);
-        }
-        else if(selectedSectors == mifare->cardType.sector_size)
-        {
-            ui->MF_selectAllBox->setCheckState(Qt::Checked);
-            ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
-        }
-        else
-        {
-            ui->MF_selectAllBox->setCheckState(Qt::PartiallyChecked);
-            ui->MF_selectTrailerBox->setCheckState(Qt::PartiallyChecked);
-        }
-    }
-    else if(item->column() == 1)
-    {
-        int selectedSubBlocks = 0;
-        int selectedBlocks = 0;
-        int selectedTrailers = 0;
-
-        for(int i = 0; i < mifare->cardType.block_size; i++)
-        {
-            if(ui->MF_dataWidget->item(i, 1)->checkState() == Qt::Checked)
-                selectedBlocks++;
-        }
-        for(int i = 0; i < mifare->cardType.blk[Mifare::data_b2s(item->row())]; i++)
-        {
-            if(ui->MF_dataWidget->item(i + mifare->cardType.blks[Mifare::data_b2s(item->row())], 1)->checkState() == Qt::Checked)
-                selectedSubBlocks++;
-        }
-        for(int i = 0; i < mifare->cardType.sector_size; i++)
-        {
-            int targetBlock = mifare->cardType.blks[i] + mifare->cardType.blk[i] - 1;
-            if(ui->MF_dataWidget->item(targetBlock, 1)->checkState() == Qt::Checked)
-                selectedTrailers++;
-        }
-        if(selectedBlocks == 0)
-        {
-            ui->MF_selectAllBox->setCheckState(Qt::Unchecked);
-        }
-        else if(selectedBlocks == mifare->cardType.block_size)
-        {
-            ui->MF_selectAllBox->setCheckState(Qt::Checked);
-        }
-        else
-        {
-            ui->MF_selectAllBox->setCheckState(Qt::PartiallyChecked);
-        }
-        if(selectedSubBlocks == 0)
-        {
-            ui->MF_dataWidget->item(mifare->cardType.blks[Mifare::data_b2s(item->row())], 0)->setCheckState(Qt::Unchecked);
-        }
-        else if(selectedSubBlocks == mifare->cardType.blk[Mifare::data_b2s(item->row())])
-        {
-            ui->MF_dataWidget->item(mifare->cardType.blks[Mifare::data_b2s(item->row())], 0)->setCheckState(Qt::Checked);
-        }
-        else
-        {
-            ui->MF_dataWidget->item(mifare->cardType.blks[Mifare::data_b2s(item->row())], 0)->setCheckState(Qt::PartiallyChecked);
-        }
-        if(selectedTrailers == 0)
-        {
-            ui->MF_selectTrailerBox->setCheckState(Qt::Unchecked);
-        }
-        else if(selectedTrailers == mifare->cardType.sector_size)
-        {
-            ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
-        }
-        else
-        {
-            ui->MF_selectTrailerBox->setCheckState(Qt::PartiallyChecked);
-        }
-    }
-    else if(item->column() == 2)
-    {
-        QString data = item->text().remove(" ").toUpper();
-        if(data == "" || mifare->data_isDataValid(data) == Mifare::DATA_NOSPACE)
-        {
-            mifare->data_setData(item->row(), data);
-        }
-        else
-        {
-            QMessageBox::information(this, tr("Info"), tr("Data must consists of 32 Hex symbols(Whitespace is allowed)"));
-        }
-        mifare->data_syncWithDataWidget(false, item->row());
-    }
-    ui->MF_dataWidget->blockSignals(false);
-    ui->MF_selectAllBox->blockSignals(false);
-    ui->MF_selectTrailerBox->blockSignals(false);
-}
-
-void MainWindow::on_MF_keyWidget_itemChanged(QTableWidgetItem *item)
-{
-    if(item->column() == 1)
-    {
-        QString key = item->text().remove(" ").toUpper();
-        if(key == "" || mifare->data_isKeyValid(key))
-        {
-            mifare->data_setKey(item->row(), Mifare::KEY_A, key);
-        }
-        else
-        {
-            QMessageBox::information(this, tr("Info"), tr("Key must consists of 12 Hex symbols(Whitespace is allowed)"));
-        }
-        mifare->data_syncWithKeyWidget(false, item->row(), Mifare::KEY_A);
-    }
-    else if(item->column() == 2)
-    {
-        QString key = item->text().remove(" ").toUpper();
-        if(key == "" || mifare->data_isKeyValid(key))
-        {
-            mifare->data_setKey(item->row(), Mifare::KEY_B, key);
-        }
-        else
-        {
-            QMessageBox::information(this, tr("Info"), tr("Key must consists of 12 Hex symbols(Whitespace is allowed)"));
-        }
-        mifare->data_syncWithKeyWidget(false, item->row(), Mifare::KEY_B);
-    }
-}
-
-void MainWindow::on_MF_File_loadButton_clicked()
-{
-    QString title = "";
-    QString filename = "";
-    if(ui->MF_File_dataButton->isChecked())
-    {
-        title = tr("Plz select the data file:");
-        filename = QFileDialog::getOpenFileName(this, title, "./", tr("Binary Data Files(*.bin *.dump)") + ";;" + tr("Text Data Files(*.txt *.eml)") + ";;" + tr("All Files(*.*)"));
-        qDebug() << filename;
-        if(filename != "")
-        {
-            if(!mifare->data_loadDataFile(filename))
-            {
-                QMessageBox::information(this, tr("Info"), tr("Failed to open") + "\n" + filename);
-            }
-        }
-    }
-    else if(ui->MF_File_keyButton->isChecked())
-    {
-        title = tr("Plz select the key file:");
-        filename = QFileDialog::getOpenFileName(this, title, "./", tr("Binary Key Files(*.bin *.dump)") + ";;" + tr("All Files(*.*)"));
-        qDebug() << filename;
-        if(filename != "")
-        {
-            if(!mifare->data_loadKeyFile(filename))
-            {
-                QMessageBox::information(this, tr("Info"), tr("Failed to open") + "\n" + filename);
-            }
-        }
-    }
-
-}
-
-void MainWindow::on_MF_File_saveButton_clicked()
-{
-
-    QString title = "";
-    QString filename = "";
-    QString selectedType = "";
-    QString defaultName = mifare->data_getUID();
-    if(defaultName != "")
-        defaultName += "_";
-    defaultName += QDateTime::currentDateTime().toString("yyyy-MM-dd-hh-mm-ss");
-
-    if(ui->MF_File_dataButton->isChecked())
-    {
-        title = tr("Plz select the location to save data file:");
-        filename = QFileDialog::getSaveFileName(this, title, "./data_" + defaultName, tr("Binary Data Files(*.bin *.dump)") + ";;" + tr("Text Data Files(*.txt *.eml)"), &selectedType);
-        qDebug() << filename;
-        if(filename != "")
-        {
-            if(!mifare->data_saveDataFile(filename, selectedType == tr("Binary Data Files(*.bin *.dump)")))
-            {
-                QMessageBox::information(this, tr("Info"), tr("Failed to save to") + "\n" + filename);
-            }
-        }
-    }
-    else if(ui->MF_File_keyButton->isChecked())
-    {
-        title = tr("Plz select the location to save key file:");
-        filename = QFileDialog::getSaveFileName(this, title, "./key_" + defaultName, tr("Binary Key Files(*.bin *.dump)"), &selectedType);
-        qDebug() << filename;
-        if(filename != "")
-        {
-            if(!mifare->data_saveKeyFile(filename, selectedType == tr("Binary Key Files(*.bin *.dump)")))
-            {
-                QMessageBox::information(this, tr("Info"), tr("Failed to save to") + "\n" + filename);
-            }
-        }
-    }
-    qDebug() << filename << selectedType;
-}
-
-void MainWindow::on_MF_File_clearButton_clicked()
-{
-    if(ui->MF_File_keyButton->isChecked())
-    {
-        mifare->data_clearKey();
-        mifare->data_syncWithKeyWidget();
-    }
-    else if(ui->MF_File_dataButton->isChecked())
-    {
-        mifare->data_clearData();
-        mifare->data_syncWithDataWidget();
-    }
-}
-
-void MainWindow::on_MF_Attack_infoButton_clicked()
-{
-    mifare->info();
-}
-
-void MainWindow::on_MF_Attack_chkButton_clicked()
-{
-    setState(false);
-    mifare->chk();
-    setState(true);
-}
-
-void MainWindow::on_MF_Attack_nestedButton_clicked()
-{
-    setState(false);
-    mifare->nested();
-    setState(true);
-}
-
-void MainWindow::on_MF_Attack_hardnestedButton_clicked()
-{
-    mifare->hardnested();
-}
-
-void MainWindow::on_MF_RW_readSelectedButton_clicked()
-{
-    setState(false);
-    mifare->readSelected(Mifare::TARGET_MIFARE);
-    setState(true);
-}
-
-void MainWindow::on_MF_RW_readBlockButton_clicked()
-{
-    setState(false);
-    mifare->readOne(Mifare::TARGET_MIFARE);
-    setState(true);
-}
-
-void MainWindow::on_MF_RW_writeBlockButton_clicked()
-{
-    setState(false);
-    mifare->writeOne();
-    setState(true);
-}
-
-void MainWindow::on_MF_RW_writeSelectedButton_clicked()
-{
-    setState(false);
-    mifare->writeSelected(Mifare::TARGET_MIFARE);
-    setState(true);
-}
-
-void MainWindow::on_MF_RW_dumpButton_clicked()
-{
-    mifare->dump();
-}
-
-void MainWindow::on_MF_RW_restoreButton_clicked()
-{
-    mifare->restore();
-}
-
-void MainWindow::on_MF_UID_readSelectedButton_clicked()
-{
-    setState(false);
-    mifare->readSelected(Mifare::TARGET_UID);
-    setState(true);
-}
-
-void MainWindow::on_MF_UID_readBlockButton_clicked()
-{
-    setState(false);
-    mifare->readOne(Mifare::TARGET_UID);
-    setState(true);
-}
-
-void MainWindow::on_MF_UID_writeSelectedButton_clicked()
-{
-    setState(false);
-    mifare->writeSelected(Mifare::TARGET_UID);
-    setState(true);
-}
-
-void MainWindow::on_MF_UID_writeBlockButton_clicked()
-{
-    setState(false);
-    mifare->writeOne(Mifare::TARGET_UID);
-    setState(true);
-}
-
-void MainWindow::on_MF_UID_wipeButton_clicked()
-{
-    mifare->wipeC();
-}
-
-void MainWindow::on_MF_UID_aboutUIDButton_clicked()
-{
-    QString msg;
-    msg += tr("    Normally, the Block 0 of a typical Mifare card, which contains the UID, is locked during the manufacture. Users cannot write anything to Block 0 or set a new UID to a normal Mifare card.") + "\n";
-    msg += tr("    Chinese Magic Cards(aka UID Cards) are some special cards whose Block 0 are writeable. And you can change UID by writing to it.") + "\n";
-    msg += "\n";
-    msg += tr("There are two versions of Chinese Magic Cards, the Gen1 and the Gen2.") + "\n";
-    msg += tr("    Gen1:") + "\n" + tr("    also called UID card in China. It responses to some backdoor commands so you can access any blocks without password. The Proxmark3 has a bunch of related commands(csetblk, cgetblk, ...) to deal with this type of card, and my GUI also support these commands.") + "\n";
-    msg += tr("    Gen2:") + "\n" + tr("    doesn't response to the backdoor commands, which means that a reader cannot detect whether it is a Chinese Magic Card or not by sending backdoor commands.") + "\n";
-    msg += "\n";
-    msg += tr("There are some types of Chinese Magic Card Gen2.") + "\n";
-    msg += tr("    CUID Card:") + "\n" + tr("    the Block 0 is writeable, you can write to this block repeatedly by normal wrbl command.") + "\n";
-    msg += tr("    (hf mf wrbl 0 A FFFFFFFFFFFF <the data you want to write>)") + "\n";
-    msg += tr("    FUID Card:") + "\n" + tr("    you can only write to Block 0 once. After that, it seems like a typical Mifare card(Block 0 cannot be written to).") + "\n";
-    msg += tr("    (some readers might try changing the Block 0, which could detect the CUID Card. In that case, you should use FUID card.)") + "\n";
-    msg += tr("    UFUID Card:") + "\n" + tr("    It behaves like a CUID card(or UID card? I'm not sure) before you send some special command to lock it. Once it is locked, you cannot change its Block 0(just like a typical Mifare card).") + "\n";
-    msg += "\n";
-    msg += tr("    Seemingly, these Chinese Magic Cards are more easily to be compromised by Nested Attack(it takes little time to get an unknown key).") + "\n";
-    QMessageBox::information(this, tr("About UID Card"), msg);
-}
-
-void MainWindow::on_MF_UID_setParaButton_clicked()
-{
-    setState(false);
-    mifare->setParameterC();
-    setState(true);
-}
-
-void MainWindow::on_MF_UID_lockButton_clicked()
-{
-    mifare->lockC();
-}
-
-void MainWindow::on_MF_Sim_readSelectedButton_clicked()
-{
-    setState(false);
-    mifare->readSelected(Mifare::TARGET_EMULATOR);
-    setState(true);
-}
-
-void MainWindow::on_MF_Sim_writeSelectedButton_clicked()
-{
-    setState(false);
-    mifare->writeSelected(Mifare::TARGET_EMULATOR);
-    setState(true);
-}
-
-void MainWindow::on_MF_Sim_clearButton_clicked()
-{
-    mifare->wipeE();
-}
-
-void MainWindow::on_MF_Sim_simButton_clicked()
-{
-    mifare->simulate();
-}
-
-void MainWindow::on_MF_Sniff_loadButton_clicked() // use a tmp file to support complicated path
-{
-    QString title = "";
-    QString filename = "";
-    QString defaultExtension;
-    QDir clientTracePath;
-
-    if(Util::getClientType() == Util::CLIENTTYPE_OFFICIAL)
-        defaultExtension = ".trc";
-    else if(Util::getClientType() == Util::CLIENTTYPE_ICEMAN)
-        defaultExtension = ".trace";
-
-    QString userTraceSavePath = mifare->getTraceSavePath();
-    if(userTraceSavePath.isEmpty())
-        clientTracePath = *clientWorkingDir;
-    else
-        clientTracePath = QDir(userTraceSavePath); // For v4.16717 and later
-
-    title = tr("Plz select the trace file:");
-    filename = QFileDialog::getOpenFileName(this, title, clientTracePath.absolutePath(), tr("Trace Files") + "(*" + defaultExtension + ")" + ";;" + tr("All Files(*.*)"));
-    qDebug() << filename;
-    if(filename != "")
-    {
-        QString tmpFile = "tmp" + QString::number(QDateTime::currentDateTimeUtc().toTime_t()) + defaultExtension;
-        if(QFile::copy(filename, clientTracePath.absolutePath() + "/" + tmpFile))
-        {
-            mifare->loadSniff(tmpFile);
-            util->delay(3000);
-            QFile::remove(clientTracePath.absolutePath() + "/" + tmpFile);
-        }
-        else
-        {
-            QMessageBox::information(this, tr("Info"), tr("Failed to open") + "\n" + filename);
-        }
-    }
-}
-
-void MainWindow::on_MF_Sniff_saveButton_clicked()
-{
-    QString title = "";
-    QString filename = "";
-    QString defaultExtension;
-    QDir clientTracePath;
-
-    if(Util::getClientType() == Util::CLIENTTYPE_OFFICIAL)
-        defaultExtension = ".trc";
-    else if(Util::getClientType() == Util::CLIENTTYPE_ICEMAN)
-        defaultExtension = ".trace";
-
-    QString userTraceSavePath = mifare->getTraceSavePath();
-    if(userTraceSavePath.isEmpty())
-        clientTracePath = *clientWorkingDir;
-    else
-        clientTracePath = QDir(userTraceSavePath); // For v4.16717 and later
-
-    title = tr("Plz select the location to save trace file:");
-    filename = QFileDialog::getSaveFileName(this, title, clientTracePath.absolutePath(), tr("Trace Files") + "(*" + defaultExtension + ")");
-    qDebug() << filename;
-    if(filename != "")
-    {
-        QString tmpFile = "tmp" + QString::number(QDateTime::currentDateTimeUtc().toTime_t()) + defaultExtension;
-        mifare->saveSniff(tmpFile);
-        for(int i = 0; i < 100; i++)
-        {
-            util->delay(100);
-            if(QFile::exists(clientTracePath.absolutePath() + "/" + tmpFile))
-                break;
-        }
-        // filename is not empty -> the user has chosen to overwrite the existing file
-        if(QFile::exists(filename))
-            QFile::remove(filename);
-        if(!QFile::copy(clientTracePath.absolutePath() + "/" + tmpFile, filename))
-        {
-            QMessageBox::information(this, tr("Info"), tr("Failed to save to") + "\n" + filename);
-        }
-        QFile::remove(clientTracePath.absolutePath() + "/" + tmpFile);
-    }
-
-}
-
-void MainWindow::on_MF_Sniff_sniffButton_clicked()
-{
-    setState(false);
-    mifare->sniff();
-    setState(true);
-}
-
-void MainWindow::on_MF_14aSniff_snoopButton_clicked()
-{
-    setState(false);
-    mifare->sniff14a();
-    setState(true);
-}
-
-void MainWindow::on_MF_Sniff_listButton_clicked()
-{
-    mifare->list();
-}
-
-void MainWindow::MF_widgetReset()
-{
-    int secs = mifare->cardType.sector_size;
-    int blks = mifare->cardType.block_size;
-    QBrush trailerItemForeColor = QBrush(QColor(0, 160, 255));
-    ui->MF_RW_blockBox->clear();
-    ui->MF_keyWidget->setRowCount(secs);
-    ui->MF_dataWidget->setRowCount(blks);
-
-    ui->MF_dataWidget->blockSignals(true);
-    ui->MF_keyWidget->blockSignals(true);
-    ui->MF_selectAllBox->blockSignals(true);
-    ui->MF_selectTrailerBox->blockSignals(true);
-
-    for(int i = 0; i < blks; i++)
-    {
-        setTableItem(ui->MF_dataWidget, i, 0, "");
-        setTableItem(ui->MF_dataWidget, i, 1, QString::number(i));
-        ui->MF_dataWidget->item(i, 1)->setCheckState(Qt::Checked);
-        setTableItem(ui->MF_dataWidget, i, 2, "");
-        ui->MF_RW_blockBox->addItem(QString::number(i));
-    }
-
-    for(int i = 0; i < secs; i++)
-    {
-        setTableItem(ui->MF_keyWidget, i, 0, QString::number(i));
-        setTableItem(ui->MF_keyWidget, i, 1, "");
-        setTableItem(ui->MF_keyWidget, i, 2, "");
-        setTableItem(ui->MF_dataWidget, mifare->cardType.blks[i], 0, QString::number(i));
-        ui->MF_dataWidget->item(mifare->cardType.blks[i] + mifare->cardType.blk[i] - 1, 2)->setForeground(trailerItemForeColor);
-        ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)->setCheckState(Qt::Checked);
-    }
-    ui->MF_dataWidget->item(0, 2)->setForeground(QBrush(QColor(255, 160, 0)));
+void MainWindow::on_MF_selectAllBox_stateChanged(int arg1) {
+  ui->MF_dataWidget->blockSignals(true);
+  ui->MF_selectAllBox->blockSignals(true);
+  ui->MF_selectTrailerBox->blockSignals(true);
+  if (arg1 == Qt::PartiallyChecked) {
+    ui->MF_selectAllBox->setTristate(false);
     ui->MF_selectAllBox->setCheckState(Qt::Checked);
-    ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
+  }
+  for (int i = 0; i < mifare->cardType.block_size; i++) {
+    ui->MF_dataWidget->item(i, 1)->setCheckState(
+        ui->MF_selectAllBox->checkState());
+  }
+  for (int i = 0; i < mifare->cardType.sector_size; i++) {
+    ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)
+        ->setCheckState(ui->MF_selectAllBox->checkState());
+  }
+  ui->MF_selectTrailerBox->setCheckState(ui->MF_selectAllBox->checkState());
+  ui->MF_dataWidget->blockSignals(false);
+  ui->MF_selectAllBox->blockSignals(false);
+  ui->MF_selectTrailerBox->blockSignals(false);
+}
 
-    ui->MF_dataWidget->blockSignals(false);
-    ui->MF_keyWidget->blockSignals(false);
-    ui->MF_selectAllBox->blockSignals(false);
-    ui->MF_selectTrailerBox->blockSignals(false);
+void MainWindow::on_MF_selectTrailerBox_stateChanged(int arg1) {
+  int selectedSubBlocks = 0;
+
+  ui->MF_dataWidget->blockSignals(true);
+  ui->MF_selectAllBox->blockSignals(true);
+  ui->MF_selectTrailerBox->blockSignals(true);
+  if (arg1 == Qt::PartiallyChecked) {
+    ui->MF_selectTrailerBox->setTristate(false);
+    ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
+  }
+  for (int i = 0; i < mifare->cardType.sector_size; i++) {
+    ui->MF_dataWidget
+        ->item(mifare->cardType.blks[i] + mifare->cardType.blk[i] - 1, 1)
+        ->setCheckState(ui->MF_selectTrailerBox->checkState());
+    selectedSubBlocks = 0;
+    for (int j = 0; j < mifare->cardType.blk[i]; j++) {
+      if (ui->MF_dataWidget->item(j + mifare->cardType.blks[i], 1)
+              ->checkState() == Qt::Checked)
+        selectedSubBlocks++;
+    }
+    if (selectedSubBlocks == 0) {
+      ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)
+          ->setCheckState(Qt::Unchecked);
+    } else if (selectedSubBlocks == mifare->cardType.blk[i]) {
+      ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)
+          ->setCheckState(Qt::Checked);
+    } else {
+      ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)
+          ->setCheckState(Qt::PartiallyChecked);
+    }
+  }
+
+  ui->MF_dataWidget->blockSignals(false);
+  ui->MF_selectAllBox->blockSignals(false);
+  ui->MF_selectTrailerBox->blockSignals(false);
+}
+
+void MainWindow::on_MF_data2KeyButton_clicked() { mifare->data_data2Key(); }
+
+void MainWindow::on_MF_key2DataButton_clicked() { mifare->data_key2Data(); }
+
+void MainWindow::on_MF_fillKeysButton_clicked() { mifare->data_fillKeys(); }
+
+void MainWindow::on_MF_trailerDecoderButton_clicked() {
+  decDialog = new MF_trailerDecoderDialog(this);
+  decDialog->show();
+}
+
+void MainWindow::on_MF_dataWidget_itemChanged(QTableWidgetItem *item) {
+  ui->MF_dataWidget->blockSignals(true);
+  ui->MF_selectAllBox->blockSignals(true);
+  ui->MF_selectTrailerBox->blockSignals(true);
+  if (item->column() == 0) {
+    int selectedSectors = 0;
+    for (int i = 0; i < mifare->cardType.blk[Mifare::data_b2s(item->row())];
+         i++) {
+      ui->MF_dataWidget->item(i + item->row(), 1)
+          ->setCheckState(item->checkState());
+      qDebug() << i << mifare->cardType.blk[item->row()] << i + item->row()
+               << ui->MF_dataWidget->item(i + item->row(), 1)->text();
+    }
+    for (int i = 0; i < mifare->cardType.sector_size; i++) {
+      if (ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)->checkState() ==
+          Qt::Checked) {
+        selectedSectors++;
+      }
+    }
+    if (selectedSectors == 0) {
+      ui->MF_selectAllBox->setCheckState(Qt::Unchecked);
+      ui->MF_selectTrailerBox->setCheckState(Qt::Unchecked);
+    } else if (selectedSectors == mifare->cardType.sector_size) {
+      ui->MF_selectAllBox->setCheckState(Qt::Checked);
+      ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
+    } else {
+      ui->MF_selectAllBox->setCheckState(Qt::PartiallyChecked);
+      ui->MF_selectTrailerBox->setCheckState(Qt::PartiallyChecked);
+    }
+  } else if (item->column() == 1) {
+    int selectedSubBlocks = 0;
+    int selectedBlocks = 0;
+    int selectedTrailers = 0;
+
+    for (int i = 0; i < mifare->cardType.block_size; i++) {
+      if (ui->MF_dataWidget->item(i, 1)->checkState() == Qt::Checked)
+        selectedBlocks++;
+    }
+    for (int i = 0; i < mifare->cardType.blk[Mifare::data_b2s(item->row())];
+         i++) {
+      if (ui->MF_dataWidget
+              ->item(i + mifare->cardType.blks[Mifare::data_b2s(item->row())],
+                     1)
+              ->checkState() == Qt::Checked)
+        selectedSubBlocks++;
+    }
+    for (int i = 0; i < mifare->cardType.sector_size; i++) {
+      int targetBlock = mifare->cardType.blks[i] + mifare->cardType.blk[i] - 1;
+      if (ui->MF_dataWidget->item(targetBlock, 1)->checkState() == Qt::Checked)
+        selectedTrailers++;
+    }
+    if (selectedBlocks == 0) {
+      ui->MF_selectAllBox->setCheckState(Qt::Unchecked);
+    } else if (selectedBlocks == mifare->cardType.block_size) {
+      ui->MF_selectAllBox->setCheckState(Qt::Checked);
+    } else {
+      ui->MF_selectAllBox->setCheckState(Qt::PartiallyChecked);
+    }
+    if (selectedSubBlocks == 0) {
+      ui->MF_dataWidget
+          ->item(mifare->cardType.blks[Mifare::data_b2s(item->row())], 0)
+          ->setCheckState(Qt::Unchecked);
+    } else if (selectedSubBlocks ==
+               mifare->cardType.blk[Mifare::data_b2s(item->row())]) {
+      ui->MF_dataWidget
+          ->item(mifare->cardType.blks[Mifare::data_b2s(item->row())], 0)
+          ->setCheckState(Qt::Checked);
+    } else {
+      ui->MF_dataWidget
+          ->item(mifare->cardType.blks[Mifare::data_b2s(item->row())], 0)
+          ->setCheckState(Qt::PartiallyChecked);
+    }
+    if (selectedTrailers == 0) {
+      ui->MF_selectTrailerBox->setCheckState(Qt::Unchecked);
+    } else if (selectedTrailers == mifare->cardType.sector_size) {
+      ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
+    } else {
+      ui->MF_selectTrailerBox->setCheckState(Qt::PartiallyChecked);
+    }
+  } else if (item->column() == 2) {
+    QString data = item->text().remove(" ").toUpper();
+    if (data == "" || mifare->data_isDataValid(data) == Mifare::DATA_NOSPACE) {
+      mifare->data_setData(item->row(), data);
+    } else {
+      QMessageBox::information(
+          this, tr("Info"),
+          tr("Data must consists of 32 Hex symbols(Whitespace is allowed)"));
+    }
+    mifare->data_syncWithDataWidget(false, item->row());
+  }
+  ui->MF_dataWidget->blockSignals(false);
+  ui->MF_selectAllBox->blockSignals(false);
+  ui->MF_selectTrailerBox->blockSignals(false);
+}
+
+void MainWindow::on_MF_keyWidget_itemChanged(QTableWidgetItem *item) {
+  if (item->column() == 1) {
+    QString key = item->text().remove(" ").toUpper();
+    if (key == "" || mifare->data_isKeyValid(key)) {
+      mifare->data_setKey(item->row(), Mifare::KEY_A, key);
+    } else {
+      QMessageBox::information(
+          this, tr("Info"),
+          tr("Key must consists of 12 Hex symbols(Whitespace is allowed)"));
+    }
+    mifare->data_syncWithKeyWidget(false, item->row(), Mifare::KEY_A);
+  } else if (item->column() == 2) {
+    QString key = item->text().remove(" ").toUpper();
+    if (key == "" || mifare->data_isKeyValid(key)) {
+      mifare->data_setKey(item->row(), Mifare::KEY_B, key);
+    } else {
+      QMessageBox::information(
+          this, tr("Info"),
+          tr("Key must consists of 12 Hex symbols(Whitespace is allowed)"));
+    }
+    mifare->data_syncWithKeyWidget(false, item->row(), Mifare::KEY_B);
+  }
+}
+
+void MainWindow::on_MF_File_loadButton_clicked() {
+  QString title = "";
+  QString filename = "";
+  if (ui->MF_File_dataButton->isChecked()) {
+    title = tr("Plz select the data file:");
+    filename = QFileDialog::getOpenFileName(
+        this, title, "./",
+        tr("Binary Data Files(*.bin *.dump)") + ";;" +
+            tr("Text Data Files(*.txt *.eml)") + ";;" + tr("All Files(*.*)"));
+    qDebug() << filename;
+    if (filename != "") {
+      if (!mifare->data_loadDataFile(filename)) {
+        QMessageBox::information(this, tr("Info"),
+                                 tr("Failed to open") + "\n" + filename);
+      }
+    }
+  } else if (ui->MF_File_keyButton->isChecked()) {
+    title = tr("Plz select the key file:");
+    filename = QFileDialog::getOpenFileName(
+        this, title, "./",
+        tr("Binary Key Files(*.bin *.dump)") + ";;" + tr("All Files(*.*)"));
+    qDebug() << filename;
+    if (filename != "") {
+      if (!mifare->data_loadKeyFile(filename)) {
+        QMessageBox::information(this, tr("Info"),
+                                 tr("Failed to open") + "\n" + filename);
+      }
+    }
+  }
+}
+
+void MainWindow::on_MF_File_saveButton_clicked() {
+
+  QString title = "";
+  QString filename = "";
+  QString selectedType = "";
+  QString defaultName = mifare->data_getUID();
+  if (defaultName != "")
+    defaultName += "_";
+  defaultName += QDateTime::currentDateTime().toString("yyyy-MM-dd-hh-mm-ss");
+
+  if (ui->MF_File_dataButton->isChecked()) {
+    title = tr("Plz select the location to save data file:");
+    filename = QFileDialog::getSaveFileName(
+        this, title, "./data_" + defaultName,
+        tr("Binary Data Files(*.bin *.dump)") + ";;" +
+            tr("Text Data Files(*.txt *.eml)"),
+        &selectedType);
+    qDebug() << filename;
+    if (filename != "") {
+      if (!mifare->data_saveDataFile(
+              filename,
+              selectedType == tr("Binary Data Files(*.bin *.dump)"))) {
+        QMessageBox::information(this, tr("Info"),
+                                 tr("Failed to save to") + "\n" + filename);
+      }
+    }
+  } else if (ui->MF_File_keyButton->isChecked()) {
+    title = tr("Plz select the location to save key file:");
+    filename = QFileDialog::getSaveFileName(
+        this, title, "./key_" + defaultName,
+        tr("Binary Key Files(*.bin *.dump)"), &selectedType);
+    qDebug() << filename;
+    if (filename != "") {
+      if (!mifare->data_saveKeyFile(
+              filename, selectedType == tr("Binary Key Files(*.bin *.dump)"))) {
+        QMessageBox::information(this, tr("Info"),
+                                 tr("Failed to save to") + "\n" + filename);
+      }
+    }
+  }
+  qDebug() << filename << selectedType;
+}
+
+void MainWindow::on_MF_File_clearButton_clicked() {
+  if (ui->MF_File_keyButton->isChecked()) {
+    mifare->data_clearKey();
+    mifare->data_syncWithKeyWidget();
+  } else if (ui->MF_File_dataButton->isChecked()) {
+    mifare->data_clearData();
+    mifare->data_syncWithDataWidget();
+  }
+}
+
+void MainWindow::on_MF_Attack_infoButton_clicked() { mifare->info(); }
+
+void MainWindow::on_MF_Attack_chkButton_clicked() {
+  setState(false);
+  mifare->chk();
+  setState(true);
+}
+
+void MainWindow::on_MF_Attack_nestedButton_clicked() {
+  setState(false);
+  mifare->nested();
+  setState(true);
+}
+
+void MainWindow::on_MF_Attack_hardnestedButton_clicked() {
+  mifare->hardnested();
+}
+
+void MainWindow::on_MF_RW_readSelectedButton_clicked() {
+  setState(false);
+  mifare->readSelected(Mifare::TARGET_MIFARE);
+  setState(true);
+}
+
+void MainWindow::on_MF_RW_readBlockButton_clicked() {
+  setState(false);
+  mifare->readOne(Mifare::TARGET_MIFARE);
+  setState(true);
+}
+
+void MainWindow::on_MF_RW_writeBlockButton_clicked() {
+  setState(false);
+  mifare->writeOne();
+  setState(true);
+}
+
+void MainWindow::on_MF_RW_writeSelectedButton_clicked() {
+  setState(false);
+  mifare->writeSelected(Mifare::TARGET_MIFARE);
+  setState(true);
+}
+
+void MainWindow::on_MF_RW_dumpButton_clicked() { mifare->dump(); }
+
+void MainWindow::on_MF_RW_restoreButton_clicked() { mifare->restore(); }
+
+void MainWindow::on_MF_UID_readSelectedButton_clicked() {
+  setState(false);
+  mifare->readSelected(Mifare::TARGET_UID);
+  setState(true);
+}
+
+void MainWindow::on_MF_UID_readBlockButton_clicked() {
+  setState(false);
+  mifare->readOne(Mifare::TARGET_UID);
+  setState(true);
+}
+
+void MainWindow::on_MF_UID_writeSelectedButton_clicked() {
+  setState(false);
+  mifare->writeSelected(Mifare::TARGET_UID);
+  setState(true);
+}
+
+void MainWindow::on_MF_UID_writeBlockButton_clicked() {
+  setState(false);
+  mifare->writeOne(Mifare::TARGET_UID);
+  setState(true);
+}
+
+void MainWindow::on_MF_UID_wipeButton_clicked() { mifare->wipeC(); }
+
+void MainWindow::on_MF_UID_aboutUIDButton_clicked() {
+  QString msg;
+  msg +=
+      tr("    Normally, the Block 0 of a typical Mifare card, which contains "
+         "the UID, is locked during the manufacture. Users cannot write "
+         "anything to Block 0 or set a new UID to a normal Mifare card.") +
+      "\n";
+  msg +=
+      tr("    Chinese Magic Cards(aka UID Cards) are some special cards whose "
+         "Block 0 are writeable. And you can change UID by writing to it.") +
+      "\n";
+  msg += "\n";
+  msg += tr("There are two versions of Chinese Magic Cards, the Gen1 and the "
+            "Gen2.") +
+         "\n";
+  msg += tr("    Gen1:") + "\n" +
+         tr("    also called UID card in China. It responses to some backdoor "
+            "commands so you can access any blocks without password. The "
+            "Proxmark3 has a bunch of related commands(csetblk, cgetblk, ...) "
+            "to deal with this type of card, and my GUI also support these "
+            "commands.") +
+         "\n";
+  msg += tr("    Gen2:") + "\n" +
+         tr("    doesn't response to the backdoor commands, which means that a "
+            "reader cannot detect whether it is a Chinese Magic Card or not by "
+            "sending backdoor commands.") +
+         "\n";
+  msg += "\n";
+  msg += tr("There are some types of Chinese Magic Card Gen2.") + "\n";
+  msg += tr("    CUID Card:") + "\n" +
+         tr("    the Block 0 is writeable, you can write to this block "
+            "repeatedly by normal wrbl command.") +
+         "\n";
+  msg += tr("    (hf mf wrbl 0 A FFFFFFFFFFFF <the data you want to write>)") +
+         "\n";
+  msg += tr("    FUID Card:") + "\n" +
+         tr("    you can only write to Block 0 once. After that, it seems like "
+            "a typical Mifare card(Block 0 cannot be written to).") +
+         "\n";
+  msg += tr("    (some readers might try changing the Block 0, which could "
+            "detect the CUID Card. In that case, you should use FUID card.)") +
+         "\n";
+  msg += tr("    UFUID Card:") + "\n" +
+         tr("    It behaves like a CUID card(or UID card? I'm not sure) before "
+            "you send some special command to lock it. Once it is locked, you "
+            "cannot change its Block 0(just like a typical Mifare card).") +
+         "\n";
+  msg += "\n";
+  msg += tr("    Seemingly, these Chinese Magic Cards are more easily to be "
+            "compromised by Nested Attack(it takes little time to get an "
+            "unknown key).") +
+         "\n";
+  QMessageBox::information(this, tr("About UID Card"), msg);
+}
+
+void MainWindow::on_MF_UID_setParaButton_clicked() {
+  setState(false);
+  mifare->setParameterC();
+  setState(true);
+}
+
+void MainWindow::on_MF_UID_lockButton_clicked() { mifare->lockC(); }
+
+void MainWindow::on_MF_Sim_readSelectedButton_clicked() {
+  setState(false);
+  mifare->readSelected(Mifare::TARGET_EMULATOR);
+  setState(true);
+}
+
+void MainWindow::on_MF_Sim_writeSelectedButton_clicked() {
+  setState(false);
+  mifare->writeSelected(Mifare::TARGET_EMULATOR);
+  setState(true);
+}
+
+void MainWindow::on_MF_Sim_clearButton_clicked() { mifare->wipeE(); }
+
+void MainWindow::on_MF_Sim_simButton_clicked() { mifare->simulate(); }
+
+void MainWindow::on_MF_Sniff_loadButton_clicked() // use a tmp file to support
+                                                  // complicated path
+{
+  QString title = "";
+  QString filename = "";
+  QString defaultExtension;
+  QDir clientTracePath;
+
+  if (Util::getClientType() == Util::CLIENTTYPE_OFFICIAL)
+    defaultExtension = ".trc";
+  else if (Util::getClientType() == Util::CLIENTTYPE_ICEMAN)
+    defaultExtension = ".trace";
+
+  QString userTraceSavePath = mifare->getTraceSavePath();
+  if (userTraceSavePath.isEmpty())
+    clientTracePath = *clientWorkingDir;
+  else
+    clientTracePath = QDir(userTraceSavePath); // For v4.16717 and later
+
+  title = tr("Plz select the trace file:");
+  filename =
+      QFileDialog::getOpenFileName(this, title, clientTracePath.absolutePath(),
+                                   tr("Trace Files") + "(*" + defaultExtension +
+                                       ")" + ";;" + tr("All Files(*.*)"));
+  qDebug() << filename;
+  if (filename != "") {
+    QString tmpFile =
+        "tmp" + QString::number(QDateTime::currentDateTimeUtc().toTime_t()) +
+        defaultExtension;
+    if (QFile::copy(filename, clientTracePath.absolutePath() + "/" + tmpFile)) {
+      mifare->loadSniff(tmpFile);
+      util->delay(3000);
+      QFile::remove(clientTracePath.absolutePath() + "/" + tmpFile);
+    } else {
+      QMessageBox::information(this, tr("Info"),
+                               tr("Failed to open") + "\n" + filename);
+    }
+  }
+}
+
+void MainWindow::on_MF_Sniff_saveButton_clicked() {
+  QString title = "";
+  QString filename = "";
+  QString defaultExtension;
+  QDir clientTracePath;
+
+  if (Util::getClientType() == Util::CLIENTTYPE_OFFICIAL)
+    defaultExtension = ".trc";
+  else if (Util::getClientType() == Util::CLIENTTYPE_ICEMAN)
+    defaultExtension = ".trace";
+
+  QString userTraceSavePath = mifare->getTraceSavePath();
+  if (userTraceSavePath.isEmpty())
+    clientTracePath = *clientWorkingDir;
+  else
+    clientTracePath = QDir(userTraceSavePath); // For v4.16717 and later
+
+  title = tr("Plz select the location to save trace file:");
+  filename = QFileDialog::getSaveFileName(
+      this, title, clientTracePath.absolutePath(),
+      tr("Trace Files") + "(*" + defaultExtension + ")");
+  qDebug() << filename;
+  if (filename != "") {
+    QString tmpFile =
+        "tmp" + QString::number(QDateTime::currentDateTimeUtc().toTime_t()) +
+        defaultExtension;
+    mifare->saveSniff(tmpFile);
+    for (int i = 0; i < 100; i++) {
+      util->delay(100);
+      if (QFile::exists(clientTracePath.absolutePath() + "/" + tmpFile))
+        break;
+    }
+    // filename is not empty -> the user has chosen to overwrite the existing
+    // file
+    if (QFile::exists(filename))
+      QFile::remove(filename);
+    if (!QFile::copy(clientTracePath.absolutePath() + "/" + tmpFile,
+                     filename)) {
+      QMessageBox::information(this, tr("Info"),
+                               tr("Failed to save to") + "\n" + filename);
+    }
+    QFile::remove(clientTracePath.absolutePath() + "/" + tmpFile);
+  }
+}
+
+void MainWindow::on_MF_Sniff_sniffButton_clicked() {
+  setState(false);
+  mifare->sniff();
+  setState(true);
+}
+
+void MainWindow::on_MF_14aSniff_snoopButton_clicked() {
+  setState(false);
+  mifare->sniff14a();
+  setState(true);
+}
+
+void MainWindow::on_MF_Sniff_listButton_clicked() { mifare->list(); }
+
+void MainWindow::MF_widgetReset() {
+  int secs = mifare->cardType.sector_size;
+  int blks = mifare->cardType.block_size;
+  QBrush trailerItemForeColor = QBrush(QColor(0, 160, 255));
+  ui->MF_RW_blockBox->clear();
+  ui->MF_keyWidget->setRowCount(secs);
+  ui->MF_dataWidget->setRowCount(blks);
+
+  ui->MF_dataWidget->blockSignals(true);
+  ui->MF_keyWidget->blockSignals(true);
+  ui->MF_selectAllBox->blockSignals(true);
+  ui->MF_selectTrailerBox->blockSignals(true);
+
+  for (int i = 0; i < blks; i++) {
+    setTableItem(ui->MF_dataWidget, i, 0, "");
+    setTableItem(ui->MF_dataWidget, i, 1, QString::number(i));
+    ui->MF_dataWidget->item(i, 1)->setCheckState(Qt::Checked);
+    setTableItem(ui->MF_dataWidget, i, 2, "");
+    ui->MF_RW_blockBox->addItem(QString::number(i));
+  }
+
+  for (int i = 0; i < secs; i++) {
+    setTableItem(ui->MF_keyWidget, i, 0, QString::number(i));
+    setTableItem(ui->MF_keyWidget, i, 1, "");
+    setTableItem(ui->MF_keyWidget, i, 2, "");
+    setTableItem(ui->MF_dataWidget, mifare->cardType.blks[i], 0,
+                 QString::number(i));
+    ui->MF_dataWidget
+        ->item(mifare->cardType.blks[i] + mifare->cardType.blk[i] - 1, 2)
+        ->setForeground(trailerItemForeColor);
+    ui->MF_dataWidget->item(mifare->cardType.blks[i], 0)
+        ->setCheckState(Qt::Checked);
+  }
+  ui->MF_dataWidget->item(0, 2)->setForeground(QBrush(QColor(255, 160, 0)));
+  ui->MF_selectAllBox->setCheckState(Qt::Checked);
+  ui->MF_selectTrailerBox->setCheckState(Qt::Checked);
+
+  ui->MF_dataWidget->blockSignals(false);
+  ui->MF_keyWidget->blockSignals(false);
+  ui->MF_selectAllBox->blockSignals(false);
+  ui->MF_selectTrailerBox->blockSignals(false);
 }
 // ************************************************
 
-
 // ******************** other ********************
 
-void MainWindow::uiInit()
-{
-    connect(ui->Raw_CMDEdit, &QLineEdit::returnPressed, this, &MainWindow::sendMSG);
-    ui->Raw_CMDEdit->installEventFilter(keyEventFilter);
-    connect(keyEventFilter, &MyEventFilter::eventHappened, this, &MainWindow::on_Raw_keyPressed);
-    ui->MF_keyWidget->installEventFilter(resizeEventFilter);
-    connect(resizeEventFilter, &MyEventFilter::eventHappened, this, &MainWindow::on_MF_keyWidget_resized);
-    ui->Raw_outputEdit->installEventFilter(keyEventFilter);
+void MainWindow::uiInit() {
+  connect(ui->Raw_CMDEdit, &QLineEdit::returnPressed, this,
+          &MainWindow::sendMSG);
+  ui->Raw_CMDEdit->installEventFilter(keyEventFilter);
+  connect(keyEventFilter, &MyEventFilter::eventHappened, this,
+          &MainWindow::on_Raw_keyPressed);
+  ui->MF_keyWidget->installEventFilter(resizeEventFilter);
+  connect(resizeEventFilter, &MyEventFilter::eventHappened, this,
+          &MainWindow::on_MF_keyWidget_resized);
+  ui->Raw_outputEdit->installEventFilter(keyEventFilter);
 
-    connectStatusBar = new QLabel(this);
-    programStatusBar = new QLabel(this);
-    PM3VersionBar = new QLabel(this);
-    stopButton = new QPushButton(this);
-    setStatusBar(connectStatusBar, tr("Not Connected"));
-    setStatusBar(programStatusBar, tr("Idle"));
-    setStatusBar(PM3VersionBar, "");
-    stopButton->setText(tr("Stop"));
-    ui->statusbar->addPermanentWidget(PM3VersionBar, 1);
-    ui->statusbar->addPermanentWidget(connectStatusBar, 1);
-    ui->statusbar->addPermanentWidget(programStatusBar, 1);
-    ui->statusbar->addPermanentWidget(stopButton);
+  connectStatusBar = new QLabel(this);
+  programStatusBar = new QLabel(this);
+  PM3VersionBar = new QLabel(this);
+  stopButton = new QPushButton(this);
+  setStatusBar(connectStatusBar, tr("Not Connected"));
+  setStatusBar(programStatusBar, tr("Idle"));
+  setStatusBar(PM3VersionBar, "");
+  stopButton->setText(tr("Stop"));
+  ui->statusbar->addPermanentWidget(PM3VersionBar, 1);
+  ui->statusbar->addPermanentWidget(connectStatusBar, 1);
+  ui->statusbar->addPermanentWidget(programStatusBar, 1);
+  ui->statusbar->addPermanentWidget(stopButton);
 
-    ui->MF_dataWidget->setColumnWidth(0, 55);
-    ui->MF_dataWidget->setColumnWidth(1, 55);
+  ui->MF_dataWidget->setColumnWidth(0, 55);
+  ui->MF_dataWidget->setColumnWidth(1, 55);
 
-    ui->MF_keyWidget->setColumnWidth(0, 45);
+  ui->MF_keyWidget->setColumnWidth(0, 45);
 
-    MF_widgetReset();
-    MFCardTypeBtnGroup = new QButtonGroup(this);
-    MFCardTypeBtnGroup->addButton(ui->MF_Type_miniButton, 0);
-    MFCardTypeBtnGroup->addButton(ui->MF_Type_1kButton, 1);
-    MFCardTypeBtnGroup->addButton(ui->MF_Type_2kButton, 2);
-    MFCardTypeBtnGroup->addButton(ui->MF_Type_4kButton, 4);
-    connect(MFCardTypeBtnGroup, QOverload<int, bool>::of(&QButtonGroup::buttonToggled), this, &MainWindow::MF_onMFCardTypeChanged);
+  MF_widgetReset();
+  MFCardTypeBtnGroup = new QButtonGroup(this);
+  MFCardTypeBtnGroup->addButton(ui->MF_Type_miniButton, 0);
+  MFCardTypeBtnGroup->addButton(ui->MF_Type_1kButton, 1);
+  MFCardTypeBtnGroup->addButton(ui->MF_Type_2kButton, 2);
+  MFCardTypeBtnGroup->addButton(ui->MF_Type_4kButton, 4);
+  connect(MFCardTypeBtnGroup,
+          QOverload<int, bool>::of(&QButtonGroup::buttonToggled), this,
+          &MainWindow::MF_onMFCardTypeChanged);
 
-    ui->MF_keyWidget->installEventFilter(this);
-    ui->MF_dataWidget->installEventFilter(this);
+  ui->MF_keyWidget->installEventFilter(this);
+  ui->MF_dataWidget->installEventFilter(this);
 
-    ui->Set_UI_Theme_nameBox->addItem(tr("(None)"), "(none)");
-    ui->Set_UI_Theme_nameBox->addItem(tr("Dark"), "qdss_dark");
-    ui->Set_UI_Theme_nameBox->addItem(tr("Light"), "qdss_light");
+  ui->Set_UI_Theme_nameBox->addItem(tr("(None)"), "(none)");
+  ui->Set_UI_Theme_nameBox->addItem(tr("Dark"), "qdss_dark");
+  ui->Set_UI_Theme_nameBox->addItem(tr("Light"), "qdss_light");
 
-    settings->beginGroup("UI_grpbox_preference");
+  settings->beginGroup("UI_grpbox_preference");
 
-    QStringList boxNames = settings->allKeys();
-    QGroupBox * boxptr;
-    foreach(QString name, boxNames)
-    {
-        boxptr = this->findChild<QGroupBox*>(name);
-        if(boxptr == nullptr)
-            continue;
-        if(settings->value(name, true).toBool())
-        {
-            boxptr->setMaximumHeight(16777215);
-            boxptr->setChecked(true);
-        }
-        else
-        {
-            boxptr->setMaximumHeight(20);
-            boxptr->setChecked(false);
-        }
+  QStringList boxNames = settings->allKeys();
+  QGroupBox *boxptr;
+  foreach (QString name, boxNames) {
+    boxptr = this->findChild<QGroupBox *>(name);
+    if (boxptr == nullptr)
+      continue;
+    if (settings->value(name, true).toBool()) {
+      boxptr->setMaximumHeight(16777215);
+      boxptr->setChecked(true);
+    } else {
+      boxptr->setMaximumHeight(20);
+      boxptr->setChecked(false);
     }
-    settings->endGroup();
+  }
+  settings->endGroup();
 
-    loadClientPathList();
+  loadClientPathList();
 
-    ui->Set_Client_GUIWorkingDirLabel->setText(QDir::currentPath());
+  ui->Set_Client_GUIWorkingDirLabel->setText(QDir::currentPath());
 
-    settings->beginGroup("Client_Args");
-    ui->Set_Client_startArgsEdit->setText(settings->value("args", "<port> -f").toString());
-    settings->endGroup();
+  settings->beginGroup("Client_Args");
+  ui->Set_Client_startArgsEdit->setText(
+      settings->value("args", "<port> -f").toString());
+  settings->endGroup();
 
-    settings->beginGroup("Client_forceButtonsEnabled");
-    keepButtonsEnabled = settings->value("state", false).toBool();
-    settings->endGroup();
-    ui->Set_Client_forceEnabledBox->setChecked(keepButtonsEnabled);
+  settings->beginGroup("Client_forceButtonsEnabled");
+  keepButtonsEnabled = settings->value("state", false).toBool();
+  settings->endGroup();
+  ui->Set_Client_forceEnabledBox->setChecked(keepButtonsEnabled);
 
-    // the disconnect detection doesn't work well on Linux/macOS
-    // So it should be disabled on these platforms
-    // https://github.com/wh201906/Proxmark3GUI/issues/22
-    // #22, #26, #40, #41
-    settings->beginGroup("Client_keepClientActive");
+  // the disconnect detection doesn't work well on Linux/macOS
+  // So it should be disabled on these platforms
+  // https://github.com/wh201906/Proxmark3GUI/issues/22
+  // #22, #26, #40, #41
+  settings->beginGroup("Client_keepClientActive");
 #ifdef Q_OS_WIN
-    keepClientActive = settings->value("state", false).toBool();
+  keepClientActive = settings->value("state", false).toBool();
 #else
-    keepClientActive = settings->value("state", true).toBool();
+  keepClientActive = settings->value("state", true).toBool();
 #endif
-    settings->endGroup();
-    ui->Set_Client_keepClientActiveBox->setChecked(keepClientActive);
+  settings->endGroup();
+  ui->Set_Client_keepClientActiveBox->setChecked(keepClientActive);
 
-    QDir configFiles(":/config/");
-    configFiles.setSorting(QDir::Name);
-    const QFileInfoList configFileList = configFiles.entryInfoList();
-    ui->Set_Client_configFileBox->blockSignals(true);
-    for(const auto& file : configFileList)
-    {
-        ui->Set_Client_configFileBox->addItem(file.fileName(), file.filePath());
-    }
+  QDir configFiles(":/config/");
+  configFiles.setSorting(QDir::Name);
+  const QFileInfoList configFileList = configFiles.entryInfoList();
+  ui->Set_Client_configFileBox->blockSignals(true);
+  for (const auto &file : configFileList) {
+    ui->Set_Client_configFileBox->addItem(file.fileName(), file.filePath());
+  }
 
-    // Use the last one as the default one
-    ui->Set_Client_configFileBox->setCurrentIndex(ui->Set_Client_configFileBox->count() - 1);
-    ui->Set_Client_configFileBox->addItem(tr("External file"), "(ext)");
+  // Use the last one as the default one
+  ui->Set_Client_configFileBox->setCurrentIndex(
+      ui->Set_Client_configFileBox->count() - 1);
+  ui->Set_Client_configFileBox->addItem(tr("External file"), "(ext)");
 
-    int configId = -1;
-    settings->beginGroup("Client_Env");
-    ui->Set_Client_envScriptEdit->setText(settings->value("scriptPath").toString());
-    ui->Set_Client_workingDirEdit->setText(settings->value("workingDir", "../data").toString());
-    configId = ui->Set_Client_configFileBox->findData(settings->value("configFile"));
-    ui->Set_Client_configPathEdit->setText(settings->value("extConfigFilePath", "config.json").toString());
-    settings->endGroup();
-    if(configId != -1)
-        ui->Set_Client_configFileBox->setCurrentIndex(configId);
-    ui->Set_Client_configFileBox->blockSignals(false);
-    on_Set_Client_configFileBox_currentIndexChanged(ui->Set_Client_configFileBox->currentIndex());
+  int configId = -1;
+  settings->beginGroup("Client_Env");
+  ui->Set_Client_envScriptEdit->setText(
+      settings->value("scriptPath").toString());
+  ui->Set_Client_workingDirEdit->setText(
+      settings->value("workingDir", "../data").toString());
+  configId =
+      ui->Set_Client_configFileBox->findData(settings->value("configFile"));
+  ui->Set_Client_configPathEdit->setText(
+      settings->value("extConfigFilePath", "config.json").toString());
+  settings->endGroup();
+  if (configId != -1)
+    ui->Set_Client_configFileBox->setCurrentIndex(configId);
+  ui->Set_Client_configFileBox->blockSignals(false);
+  on_Set_Client_configFileBox_currentIndexChanged(
+      ui->Set_Client_configFileBox->currentIndex());
 
-    // setValue() will trigger valueChanged()
-    // setValue(settings->value()) will create a nested group
-    // call endGroup() before apply the value
-    settings->beginGroup("UI");
-    int opacity = settings->value("Opacity", 100).toInt();
-    int themeId = ui->Set_UI_Theme_nameBox->findData(settings->value("Theme_Name", "(none)").toString());
-    settings->endGroup();
-    ui->Set_UI_Opacity_Box->setValue(opacity);
-    ui->Set_UI_Theme_nameBox->setCurrentIndex((themeId == -1) ? 0 : themeId);
+  // setValue() will trigger valueChanged()
+  // setValue(settings->value()) will create a nested group
+  // call endGroup() before apply the value
+  settings->beginGroup("UI");
+  int opacity = settings->value("Opacity", 100).toInt();
+  int themeId = ui->Set_UI_Theme_nameBox->findData(
+      settings->value("Theme_Name", "(none)").toString());
+  settings->endGroup();
+  ui->Set_UI_Opacity_Box->setValue(opacity);
+  ui->Set_UI_Theme_nameBox->setCurrentIndex((themeId == -1) ? 0 : themeId);
 
-    settings->beginGroup("UI");
-    // QApplication::font() might return wrong result
-    // If fonts are not specified in config file, don't touch them.
-    QString tmpFontName;
-    int tmpFontSize;
-    bool fontValid = false, dataFontValid = false, CMDFontValid = false;
-    tmpFontName = settings->value("Font_Name", "").toString();
-    tmpFontSize = settings->value("Font_Size", -1).toInt();
-    if(!tmpFontName.isEmpty() && tmpFontSize != -1 && tmpFontName == QFont(tmpFontName).family())
-    {
-        ui->Set_UI_Font_nameBox->setCurrentFont(QFont(tmpFontName));
-        ui->Set_UI_Font_sizeBox->setValue(tmpFontSize);
-        fontValid = true;
-    }
-    // The default font should be the same as MF_dataWidget's and MF_keyWidget's.
-    tmpFontName = settings->value("DataFont_Name", "Consolas").toString();
-    tmpFontSize = settings->value("DataFont_Size", 12).toInt();
-    if(!tmpFontName.isEmpty() && tmpFontSize != -1 && tmpFontName == QFont(tmpFontName).family())
-    {
-        ui->Set_UI_DataFont_nameBox->setCurrentFont(QFont(tmpFontName));
-        ui->Set_UI_DataFont_sizeBox->setValue(tmpFontSize);
-        dataFontValid = true;
-    }
-    tmpFontName = settings->value("CMDFont_Name", "").toString();
-    tmpFontSize = settings->value("CMDFont_Size", -1).toInt();
-    if(!tmpFontName.isEmpty() && tmpFontSize != -1 && tmpFontName == QFont(tmpFontName).family())
-    {
-        ui->Set_UI_CMDFont_nameBox->setCurrentFont(QFont(tmpFontName));
-        ui->Set_UI_CMDFont_sizeBox->setValue(tmpFontSize);
-        CMDFontValid = true;
-    }
-    settings->endGroup();
+  settings->beginGroup("UI");
+  // QApplication::font() might return wrong result
+  // If fonts are not specified in config file, don't touch them.
+  QString tmpFontName;
+  int tmpFontSize;
+  bool fontValid = false, dataFontValid = false, CMDFontValid = false;
+  tmpFontName = settings->value("Font_Name", "").toString();
+  tmpFontSize = settings->value("Font_Size", -1).toInt();
+  if (!tmpFontName.isEmpty() && tmpFontSize != -1 &&
+      tmpFontName == QFont(tmpFontName).family()) {
+    ui->Set_UI_Font_nameBox->setCurrentFont(QFont(tmpFontName));
+    ui->Set_UI_Font_sizeBox->setValue(tmpFontSize);
+    fontValid = true;
+  }
+  // The default font should be the same as MF_dataWidget's and MF_keyWidget's.
+  tmpFontName = settings->value("DataFont_Name", "Consolas").toString();
+  tmpFontSize = settings->value("DataFont_Size", 12).toInt();
+  if (!tmpFontName.isEmpty() && tmpFontSize != -1 &&
+      tmpFontName == QFont(tmpFontName).family()) {
+    ui->Set_UI_DataFont_nameBox->setCurrentFont(QFont(tmpFontName));
+    ui->Set_UI_DataFont_sizeBox->setValue(tmpFontSize);
+    dataFontValid = true;
+  }
+  tmpFontName = settings->value("CMDFont_Name", "").toString();
+  tmpFontSize = settings->value("CMDFont_Size", -1).toInt();
+  if (!tmpFontName.isEmpty() && tmpFontSize != -1 &&
+      tmpFontName == QFont(tmpFontName).family()) {
+    ui->Set_UI_CMDFont_nameBox->setCurrentFont(QFont(tmpFontName));
+    ui->Set_UI_CMDFont_sizeBox->setValue(tmpFontSize);
+    CMDFontValid = true;
+  }
+  settings->endGroup();
 
-    if(fontValid)
-        on_Set_UI_Font_setButton_clicked();
-    if(dataFontValid)
-        on_Set_UI_DataFont_setButton_clicked();
-    if(CMDFontValid)
-        on_Set_UI_CMDFont_setButton_clicked();
+  if (fontValid)
+    on_Set_UI_Font_setButton_clicked();
+  if (dataFontValid)
+    on_Set_UI_DataFont_setButton_clicked();
+  if (CMDFontValid)
+    on_Set_UI_CMDFont_setButton_clicked();
 
-    ui->MF_RW_keyTypeBox->addItem("A", Mifare::KEY_A);
-    ui->MF_RW_keyTypeBox->addItem("B", Mifare::KEY_B);
+  ui->MF_RW_keyTypeBox->addItem("A", Mifare::KEY_A);
+  ui->MF_RW_keyTypeBox->addItem("B", Mifare::KEY_B);
 
-    on_Raw_CMDHistoryBox_stateChanged(Qt::Unchecked);
-
+  on_Raw_CMDHistoryBox_stateChanged(Qt::Unchecked);
 }
 
-void MainWindow::signalInit()
-{
-    connect(pm3, &PM3Process::newOutput, util, &Util::processOutput);
-    connect(pm3, &PM3Process::changeClientType, util, &Util::setClientType);
-    connect(util, &Util::refreshOutput, this, &MainWindow::refreshOutput);
+void MainWindow::signalInit() {
+  connect(pm3, &PM3Process::newOutput, util, &Util::processOutput);
+  connect(pm3, &PM3Process::changeClientType, util, &Util::setClientType);
+  connect(util, &Util::refreshOutput, this, &MainWindow::refreshOutput);
 
-    connect(this, &MainWindow::connectPM3, pm3, &PM3Process::connectPM3);
-    connect(this, &MainWindow::reconnectPM3, pm3, &PM3Process::reconnectPM3);
-    connect(pm3, &PM3Process::PM3StatedChanged, this, &MainWindow::onPM3StateChanged);
-    connect(pm3, &PM3Process::PM3StatedChanged, util, &Util::setRunningState);
-    connect(pm3, &PM3Process::errorOccurred, this, &MainWindow::onPM3ErrorOccurred);
-    connect(pm3, &PM3Process::HWConnectFailed, this, &MainWindow::onPM3HWConnectFailed);
-    connect(this, &MainWindow::killPM3, pm3, &PM3Process::killPM3);
-    connect(this, &MainWindow::setProcEnv, pm3, &PM3Process::setProcEnv);
-    connect(this, &MainWindow::setWorkingDir, pm3, &PM3Process::setWorkingDir);
-    connect(this, QOverload<bool>::of(&MainWindow::setSerialListener), pm3, QOverload<bool>::of(&PM3Process::setSerialListener));
-    connect(this, QOverload<const QString&, bool>::of(&MainWindow::setSerialListener), pm3, QOverload<const QString&, bool>::of(&PM3Process::setSerialListener));
+  connect(this, &MainWindow::connectPM3, pm3, &PM3Process::connectPM3);
+  connect(this, &MainWindow::reconnectPM3, pm3, &PM3Process::reconnectPM3);
+  connect(pm3, &PM3Process::PM3StatedChanged, this,
+          &MainWindow::onPM3StateChanged);
+  connect(pm3, &PM3Process::PM3StatedChanged, util, &Util::setRunningState);
+  connect(pm3, &PM3Process::errorOccurred, this,
+          &MainWindow::onPM3ErrorOccurred);
+  connect(pm3, &PM3Process::HWConnectFailed, this,
+          &MainWindow::onPM3HWConnectFailed);
+  connect(this, &MainWindow::killPM3, pm3, &PM3Process::killPM3);
+  connect(this, &MainWindow::setProcEnv, pm3, &PM3Process::setProcEnv);
+  connect(this, &MainWindow::setWorkingDir, pm3, &PM3Process::setWorkingDir);
+  connect(this, QOverload<bool>::of(&MainWindow::setSerialListener), pm3,
+          QOverload<bool>::of(&PM3Process::setSerialListener));
+  connect(this,
+          QOverload<const QString &, bool>::of(&MainWindow::setSerialListener),
+          pm3,
+          QOverload<const QString &, bool>::of(&PM3Process::setSerialListener));
 
-    connect(util, &Util::write, pm3, &PM3Process::write);
+  connect(util, &Util::write, pm3, &PM3Process::write);
 
-    connect(ui->MF_typeGroupBox, &QGroupBox::clicked, this, &MainWindow::on_GroupBox_clicked);
-    connect(ui->MF_fileGroupBox, &QGroupBox::clicked, this, &MainWindow::on_GroupBox_clicked);
-    connect(ui->MF_RWGroupBox, &QGroupBox::clicked, this, &MainWindow::on_GroupBox_clicked);
-    connect(ui->MF_normalGroupBox, &QGroupBox::clicked, this, &MainWindow::on_GroupBox_clicked);
-    connect(ui->MF_UIDGroupBox, &QGroupBox::clicked, this, &MainWindow::on_GroupBox_clicked);
-    connect(ui->MF_simGroupBox, &QGroupBox::clicked, this, &MainWindow::on_GroupBox_clicked);
-    connect(ui->MF_sniffGroupBox, &QGroupBox::clicked, this, &MainWindow::on_GroupBox_clicked);
+  connect(ui->MF_typeGroupBox, &QGroupBox::clicked, this,
+          &MainWindow::on_GroupBox_clicked);
+  connect(ui->MF_fileGroupBox, &QGroupBox::clicked, this,
+          &MainWindow::on_GroupBox_clicked);
+  connect(ui->MF_RWGroupBox, &QGroupBox::clicked, this,
+          &MainWindow::on_GroupBox_clicked);
+  connect(ui->MF_normalGroupBox, &QGroupBox::clicked, this,
+          &MainWindow::on_GroupBox_clicked);
+  connect(ui->MF_UIDGroupBox, &QGroupBox::clicked, this,
+          &MainWindow::on_GroupBox_clicked);
+  connect(ui->MF_simGroupBox, &QGroupBox::clicked, this,
+          &MainWindow::on_GroupBox_clicked);
 
-    connect(stopButton, &QPushButton::clicked, this, &MainWindow::on_stopButton_clicked);
+  connect(stopButton, &QPushButton::clicked, this,
+          &MainWindow::on_stopButton_clicked);
 
-    connect(ui->Set_UI_Opacity_slider, &QSlider::valueChanged, ui->Set_UI_Opacity_Box, &QSpinBox::setValue);
+  connect(ui->Set_UI_Opacity_slider, &QSlider::valueChanged,
+          ui->Set_UI_Opacity_Box, &QSpinBox::setValue);
 }
 
-void MainWindow::setStatusBar(QLabel * target, const QString& text)
-{
-    if(target == PM3VersionBar)
-        target->setText(tr("HW Version:") + text);
-    else if(target == connectStatusBar)
-        target->setText(tr("PM3:") + text);
-    else if(target == programStatusBar)
-        target->setText(tr("State:") + text);
+void MainWindow::setStatusBar(QLabel *target, const QString &text) {
+  if (target == PM3VersionBar)
+    target->setText(tr("HW Version:") + text);
+  else if (target == connectStatusBar)
+    target->setText(tr("PM3:") + text);
+  else if (target == programStatusBar)
+    target->setText(tr("State:") + text);
 }
 
-void MainWindow::setTableItem(QTableWidget * widget, int row, int column, const QString& text)
-{
-    if(widget->item(row, column) == nullptr)
-        widget->setItem(row, column, new QTableWidgetItem());
-    widget->item(row, column)->setText(text);
+void MainWindow::setTableItem(QTableWidget *widget, int row, int column,
+                              const QString &text) {
+  if (widget->item(row, column) == nullptr)
+    widget->setItem(row, column, new QTableWidgetItem());
+  widget->item(row, column)->setText(text);
 }
 
-bool MainWindow::eventFilter(QObject * watched, QEvent * event) // drag support
+bool MainWindow::eventFilter(QObject *watched, QEvent *event) // drag support
 {
-    if(event->type() == QEvent::DragEnter)
-    {
-        QDragEnterEvent* dragEvent = static_cast<QDragEnterEvent*>(event);
-        dragEvent->acceptProposedAction();
-        return true;
-    }
-    else if(event->type() == QEvent::Drop)
-    {
-        QDropEvent* dropEvent = static_cast<QDropEvent*>(event);
-        if(watched == ui->MF_keyWidget)
-        {
-            const QMimeData* mime = dropEvent->mimeData();
-            if(mime->hasUrls())
-            {
-                QList<QUrl> urls = mime->urls();
-                if(urls.length() == 1)
-                {
-                    mifare->data_loadKeyFile(urls[0].toLocalFile());
-                    return true;
-                }
-            }
+  if (event->type() == QEvent::DragEnter) {
+    QDragEnterEvent *dragEvent = static_cast<QDragEnterEvent *>(event);
+    dragEvent->acceptProposedAction();
+    return true;
+  } else if (event->type() == QEvent::Drop) {
+    QDropEvent *dropEvent = static_cast<QDropEvent *>(event);
+    if (watched == ui->MF_keyWidget) {
+      const QMimeData *mime = dropEvent->mimeData();
+      if (mime->hasUrls()) {
+        QList<QUrl> urls = mime->urls();
+        if (urls.length() == 1) {
+          mifare->data_loadKeyFile(urls[0].toLocalFile());
+          return true;
         }
-        else if(watched == ui->MF_dataWidget)
-        {
-            const QMimeData* mime = dropEvent->mimeData();
-            if(mime->hasUrls())
-            {
-                QList<QUrl> urls = mime->urls();
-                if(urls.length() == 1)
-                {
-                    mifare->data_loadDataFile(urls[0].toLocalFile());
-                    return true;
-                }
-            }
+      }
+    } else if (watched == ui->MF_dataWidget) {
+      const QMimeData *mime = dropEvent->mimeData();
+      if (mime->hasUrls()) {
+        QList<QUrl> urls = mime->urls();
+        if (urls.length() == 1) {
+          mifare->data_loadDataFile(urls[0].toLocalFile());
+          return true;
         }
+      }
     }
-    return QMainWindow::eventFilter(watched, event);
+  }
+  return QMainWindow::eventFilter(watched, event);
 }
 
-void MainWindow::setState(bool st)
-{
-    if(!st && pm3state)
-    {
-        setStatusBar(programStatusBar, tr("Running"));
-    }
-    else
-    {
-        setStatusBar(programStatusBar, tr("Idle"));
-    }
-    setButtonsEnabled(st || keepButtonsEnabled);
+void MainWindow::setState(bool st) {
+  if (!st && pm3state) {
+    setStatusBar(programStatusBar, tr("Running"));
+  } else {
+    setStatusBar(programStatusBar, tr("Idle"));
+  }
+  setButtonsEnabled(st || keepButtonsEnabled);
 }
 
-void MainWindow::setButtonsEnabled(bool st)
-{
-    ui->MF_attackGroupBox->setEnabled(st);
-    ui->MF_normalGroupBox->setEnabled(st);
-    ui->MF_UIDGroupBox->setEnabled(st);
-    ui->MF_simGroupBox->setEnabled(st);
-    ui->MF_sniffGroupBox->setEnabled(st);
-    ui->Raw_CMDEdit->setEnabled(st);
-    ui->Raw_sendCMDButton->setEnabled(st);
-    ui->LF_LFconfigGroupBox->setEnabled(st);
-    ui->LF_operationGroupBox->setEnabled(st);
+void MainWindow::setButtonsEnabled(bool st) {
+  ui->MF_attackGroupBox->setEnabled(st);
+  ui->MF_normalGroupBox->setEnabled(st);
+  ui->MF_UIDGroupBox->setEnabled(st);
+  ui->MF_simGroupBox->setEnabled(st);
+  ui->Raw_CMDEdit->setEnabled(st);
+  ui->Raw_sendCMDButton->setEnabled(st);
+  ui->LF_LFconfigGroupBox->setEnabled(st);
+  ui->LF_operationGroupBox->setEnabled(st);
 }
 
-void MainWindow::on_GroupBox_clicked(bool checked)
-{
-    QGroupBox* box = dynamic_cast<QGroupBox*>(sender());
+void MainWindow::on_GroupBox_clicked(bool checked) {
+  QGroupBox *box = dynamic_cast<QGroupBox *>(sender());
 
-    settings->beginGroup("UI_grpbox_preference");
-    if(checked)
-    {
-        box->setMaximumHeight(16777215);
-        settings->setValue(box->objectName(), true);
-    }
-    else
-    {
-        box->setMaximumHeight(20);
-        settings->setValue(box->objectName(), false);
-    }
-    settings->endGroup();
+  settings->beginGroup("UI_grpbox_preference");
+  if (checked) {
+    box->setMaximumHeight(16777215);
+    settings->setValue(box->objectName(), true);
+  } else {
+    box->setMaximumHeight(20);
+    settings->setValue(box->objectName(), false);
+  }
+  settings->endGroup();
 }
 
-void MainWindow::addClientPath(const QString& path)
-{
-    m_clientPathList.removeAll(path);
-    m_clientPathList.prepend(path);
-    while(m_clientPathList.size() > 32) // the maximum count of path items
-        m_clientPathList.removeLast();
-    // sync to the storage
-    saveClientPathList();
-    // sync to the UI
-    loadClientPathList();
+void MainWindow::addClientPath(const QString &path) {
+  m_clientPathList.removeAll(path);
+  m_clientPathList.prepend(path);
+  while (m_clientPathList.size() > 32) // the maximum count of path items
+    m_clientPathList.removeLast();
+  // sync to the storage
+  saveClientPathList();
+  // sync to the UI
+  loadClientPathList();
 }
 
-void MainWindow::loadClientPathList()
-{
-    m_clientPathList.clear();
-    settings->beginGroup("Client_Path");
-    int len = settings->beginReadArray("pathList");
-    settings->endArray();
-    if(settings->contains("path") && len == 0)
-    {
-        qDebug() << "Using old client path storage";
-        m_clientPathList += settings->value("path", "proxmark3").toString();
-    }
-    else
-    {
-        int arrayLen = settings->beginReadArray("pathList");
-        for(int i = 0; i < arrayLen; i++)
-        {
-            settings->setArrayIndex(i);
-            QString path = settings->value("path").toString();
-            if(!path.isEmpty())
-                m_clientPathList += path;
-        }
-        settings->endArray();
-    }
-    settings->endGroup();
-
-    ui->PM3_pathBox->clear();
-    for(const QString& clientPath : qAsConst(m_clientPathList))
-        ui->PM3_pathBox->addItem(clientPath);
-}
-
-void MainWindow::saveClientPathList()
-{
-    settings->beginGroup("Client_Path");
-    if(settings->contains("path"))
-    {
-        qDebug() << "Upgrading client path storage";
-        QString oldPath = settings->value("path").toString();
-        if(!oldPath.isEmpty() && !m_clientPathList.contains(oldPath))
-            m_clientPathList.append(oldPath);
-        settings->remove("path");
-    }
-
-    settings->beginWriteArray("pathList");
-    for(int i = 0; i < m_clientPathList.size(); i++)
-    {
-        settings->setArrayIndex(i);
-        settings->setValue("path", m_clientPathList[i]);
+void MainWindow::loadClientPathList() {
+  m_clientPathList.clear();
+  settings->beginGroup("Client_Path");
+  int len = settings->beginReadArray("pathList");
+  settings->endArray();
+  if (settings->contains("path") && len == 0) {
+    qDebug() << "Using old client path storage";
+    m_clientPathList += settings->value("path", "proxmark3").toString();
+  } else {
+    int arrayLen = settings->beginReadArray("pathList");
+    for (int i = 0; i < arrayLen; i++) {
+      settings->setArrayIndex(i);
+      QString path = settings->value("path").toString();
+      if (!path.isEmpty())
+        m_clientPathList += path;
     }
     settings->endArray();
-    settings->endGroup();
+  }
+  settings->endGroup();
+
+  ui->PM3_pathBox->clear();
+  for (const QString &clientPath : qAsConst(m_clientPathList))
+    ui->PM3_pathBox->addItem(clientPath);
+}
+
+void MainWindow::saveClientPathList() {
+  settings->beginGroup("Client_Path");
+  if (settings->contains("path")) {
+    qDebug() << "Upgrading client path storage";
+    QString oldPath = settings->value("path").toString();
+    if (!oldPath.isEmpty() && !m_clientPathList.contains(oldPath))
+      m_clientPathList.append(oldPath);
+    settings->remove("path");
+  }
+
+  settings->beginWriteArray("pathList");
+  for (int i = 0; i < m_clientPathList.size(); i++) {
+    settings->setArrayIndex(i);
+    settings->setValue("path", m_clientPathList[i]);
+  }
+  settings->endArray();
+  settings->endGroup();
 }
 // ***********************************************
 
-
-
-void MainWindow::on_MF_Attack_darksideButton_clicked()
-{
-    setState(false);
-    mifare->darkside();
-    setState(true);
+void MainWindow::on_MF_Attack_darksideButton_clicked() {
+  setState(false);
+  mifare->darkside();
+  setState(true);
 }
 
-void MainWindow::on_Set_Client_startArgsEdit_editingFinished()
-{
-    settings->beginGroup("Client_Args");
-    settings->setValue("args", ui->Set_Client_startArgsEdit->text());
-    settings->endGroup();
+void MainWindow::on_Set_Client_startArgsEdit_editingFinished() {
+  settings->beginGroup("Client_Args");
+  settings->setValue("args", ui->Set_Client_startArgsEdit->text());
+  settings->endGroup();
 }
 
-void MainWindow::on_Set_Client_forceEnabledBox_stateChanged(int arg1)
-{
-    settings->beginGroup("Client_forceButtonsEnabled");
-    keepButtonsEnabled = (arg1 == Qt::Checked);
-    settings->setValue("state", keepButtonsEnabled);
-    settings->endGroup();
-    if(keepButtonsEnabled)
-        setButtonsEnabled(true);
+void MainWindow::on_Set_Client_forceEnabledBox_stateChanged(int arg1) {
+  settings->beginGroup("Client_forceButtonsEnabled");
+  keepButtonsEnabled = (arg1 == Qt::Checked);
+  settings->setValue("state", keepButtonsEnabled);
+  settings->endGroup();
+  if (keepButtonsEnabled)
+    setButtonsEnabled(true);
 }
 
-void MainWindow::on_Set_UI_setLanguageButton_clicked()
-{
-    Util::chooseLanguage(settings, this);
+void MainWindow::on_Set_UI_setLanguageButton_clicked() {
+  Util::chooseLanguage(settings, this);
 }
 
-void MainWindow::on_PM3_refreshPortButton_clicked()
-{
-    on_portSearchTimer_timeout();
+void MainWindow::on_PM3_refreshPortButton_clicked() {
+  on_portSearchTimer_timeout();
 }
 
-void MainWindow::on_Set_Client_envScriptEdit_editingFinished()
-{
-    settings->beginGroup("Client_Env");
-    settings->setValue("scriptPath", ui->Set_Client_envScriptEdit->text());
-    settings->endGroup();
+void MainWindow::on_Set_Client_envScriptEdit_editingFinished() {
+  settings->beginGroup("Client_Env");
+  settings->setValue("scriptPath", ui->Set_Client_envScriptEdit->text());
+  settings->endGroup();
 }
 
-void MainWindow::on_Set_Client_workingDirEdit_editingFinished()
-{
-    settings->beginGroup("Client_Env");
-    settings->setValue("workingDir", ui->Set_Client_workingDirEdit->text());
-    settings->endGroup();
+void MainWindow::on_Set_Client_workingDirEdit_editingFinished() {
+  settings->beginGroup("Client_Env");
+  settings->setValue("workingDir", ui->Set_Client_workingDirEdit->text());
+  settings->endGroup();
+}
+
+void MainWindow::on_Set_Client_configPathEdit_editingFinished() {
+  settings->beginGroup("Client_Env");
+  settings->setValue("extConfigFilePath",
+                     ui->Set_Client_configPathEdit->text());
+  settings->endGroup();
+}
+
+void MainWindow::on_Set_Client_keepClientActiveBox_stateChanged(int arg1) {
+  settings->beginGroup("Client_keepClientActive");
+  keepClientActive = (arg1 == Qt::Checked);
+  settings->setValue("state", keepClientActive);
+  settings->endGroup();
+  emit setSerialListener(!keepClientActive);
+}
+
+void MainWindow::on_LF_LFConf_freqSlider_valueChanged(int value) {
+  onLFfreqConfChanged(value, true);
+}
+
+void MainWindow::onLFfreqConfChanged(int divisor, bool isCustomized) {
+  ui->LF_LFConf_freqDivisorBox->blockSignals(true);
+  ui->LF_LFConf_freqSlider->blockSignals(true);
+
+  if (isCustomized)
+    ui->LF_LFConf_freqOtherButton->setChecked(true);
+  else if (divisor == 95)
+    ui->LF_LFConf_freq125kButton->setChecked(true);
+  else if (divisor == 88)
+    ui->LF_LFConf_freq134kButton->setChecked(true);
+  ui->LF_LFConf_freqLabel->setText(
+      tr("Actural Freq: ") +
+      QString("%1kHz").arg(LF::divisor2Freq(divisor), 0, 'f', 3));
+  ui->LF_LFConf_freqDivisorBox->setValue(divisor);
+  ui->LF_LFConf_freqSlider->setValue(divisor);
+
+  ui->LF_LFConf_freqDivisorBox->blockSignals(false);
+  ui->LF_LFConf_freqSlider->blockSignals(false);
+}
+
+void MainWindow::on_LF_LFConf_freqDivisorBox_valueChanged(int arg1) {
+  onLFfreqConfChanged(arg1, true);
+}
+
+void MainWindow::on_LF_LFConf_freq125kButton_clicked() {
+  onLFfreqConfChanged(95, false);
+}
+
+void MainWindow::on_LF_LFConf_freq134kButton_clicked() {
+  onLFfreqConfChanged(88, false);
+}
+
+void MainWindow::on_LF_Op_searchButton_clicked() {
+  setState(false);
+  lf->search();
+  setState(true);
+}
+
+void MainWindow::on_LF_Op_readButton_clicked() {
+  setState(false);
+  lf->read();
+  setState(true);
+}
+
+void MainWindow::on_LF_Op_tuneButton_clicked() {
+  setState(false);
+  lf->tune();
+  setState(true);
+}
+
+void MainWindow::on_LF_Op_sniffButton_clicked() {
+  setState(false);
+  lf->sniff();
+  setState(true);
+}
+
+void MainWindow::dockInit() {
+  setDockNestingEnabled(true);
+  QDockWidget *dock;
+  QWidget *widget;
+  int count = ui->funcTab->count();
+  qDebug() << "dock count" << count;
+  for (int i = 0; i < count; i++) {
+    dock = new QDockWidget(ui->funcTab->tabText(0), this);
+    qDebug() << "dock name" << ui->funcTab->tabText(0);
+    dock->setFeatures(
+        QDockWidget::DockWidgetFloatable |
+        QDockWidget::DockWidgetMovable); // movable is necessary, otherwise the
+                                         // dock cannot be dragged
+    dock->setAllowedAreas(Qt::BottomDockWidgetArea);
+    dock->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    widget = ui->funcTab->widget(0);
+    dock->setWidget(widget);
+    if (widget->objectName() == "rawTab")
+      Util::setRawTab(dock, i);
+    addDockWidget(Qt::BottomDockWidgetArea, dock);
+    if (!dockList.isEmpty())
+      tabifyDockWidget(dockList[0], dock);
+    dockList.append(dock);
+  }
+  ui->funcTab->setVisible(false);
+  dockList[0]->setVisible(true);
+  dockList[0]->raise();
+}
+
+void MainWindow::contextMenuEvent(QContextMenuEvent *event) {
+  contextMenu->exec(event->globalPos());
+}
+
+void MainWindow::on_LF_LFConf_getButton_clicked() {
+  setState(false);
+  lf->getLFConfig();
+  setState(true);
+}
+
+void MainWindow::on_LF_LFConf_setButton_clicked() {
+  LF::LFConfig config;
+  setState(false);
+  config.divisor = ui->LF_LFConf_freqDivisorBox->value();
+  config.bitsPerSample = ui->LF_LFConf_bitsPerSampleBox->value();
+  config.decimation = ui->LF_LFConf_decimationBox->value();
+  config.averaging = ui->LF_LFConf_averagingBox->isChecked();
+  config.triggerThreshold = ui->LF_LFConf_thresholdBox->value();
+  config.samplesToSkip = ui->LF_LFConf_skipsBox->value();
+  lf->setLFConfig(config);
+  Util::gotoRawTab();
+  setState(true);
+}
+
+void MainWindow::on_LF_LFConf_resetButton_clicked() {
+  setState(false);
+  lf->resetLFConfig();
+  setState(true);
+}
+
+void MainWindow::on_Set_Client_configFileBox_currentIndexChanged(int index) {
+  ui->Set_Client_configPathEdit->setVisible(
+      ui->Set_Client_configFileBox->itemData(index).toString() == "(ext)");
+  settings->beginGroup("Client_Env");
+  settings->setValue("configFile", ui->Set_Client_configFileBox->currentData());
+  settings->endGroup();
+}
+
+void MainWindow::on_Set_UI_Opacity_Box_valueChanged(int arg1) {
+  ui->Set_UI_Opacity_slider->blockSignals(true);
+  ui->Set_UI_Opacity_slider->setValue(arg1);
+  setWindowOpacity(arg1 / 100.0);
+  settings->beginGroup("UI");
+  settings->setValue("Opacity", ui->Set_UI_Opacity_Box->value());
+  settings->endGroup();
+  ui->Set_UI_Opacity_slider->blockSignals(false);
+}
+
+void MainWindow::on_Set_UI_Theme_setButton_clicked() {
+  settings->beginGroup("UI");
+  settings->setValue("Theme_Name",
+                     ui->Set_UI_Theme_nameBox->currentData().toString());
+  settings->endGroup();
+}
+
+void MainWindow::on_Set_UI_Font_setButton_clicked() {
+  QFont font = ui->Set_UI_Font_nameBox->currentFont();
+  font.setPointSize(ui->Set_UI_Font_sizeBox->value());
+  QApplication::setFont(font, "QWidget");
+
+  settings->beginGroup("UI");
+  settings->setValue("Font_Name",
+                     ui->Set_UI_Font_nameBox->currentFont().family());
+  settings->setValue("Font_Size", ui->Set_UI_Font_sizeBox->value());
+  settings->endGroup();
+}
+
+void MainWindow::on_Set_UI_DataFont_setButton_clicked() {
+  QFont font = ui->Set_UI_DataFont_nameBox->currentFont();
+  font.setPointSize(ui->Set_UI_DataFont_sizeBox->value());
+  ui->MF_dataWidget->setFont(font);
+  ui->MF_keyWidget->setFont(font);
+
+  settings->beginGroup("UI");
+  settings->setValue("DataFont_Name",
+                     ui->Set_UI_DataFont_nameBox->currentFont().family());
+  settings->setValue("DataFont_Size", ui->Set_UI_DataFont_sizeBox->value());
+  settings->endGroup();
+}
+
+void MainWindow::on_Set_UI_CMDFont_setButton_clicked() {
+  QFont font = ui->Set_UI_CMDFont_nameBox->currentFont();
+  font.setPointSize(ui->Set_UI_CMDFont_sizeBox->value());
+  ui->Raw_outputEdit->setFont(font);
+
+  settings->beginGroup("UI");
+  settings->setValue("CMDFont_Name",
+                     ui->Set_UI_CMDFont_nameBox->currentFont().family());
+  settings->setValue("CMDFont_Size", ui->Set_UI_CMDFont_sizeBox->value());
+  settings->endGroup();
+}
+
+// 确保函数名 on_MF_Attack_autopwnButton_clicked
+// 这里的 MF_Attack_autopwnButton 必须是你 UI 里的按钮 ID
+void MainWindow::on_MF_Attack_autopwnButton_clicked() {
+  setState(false);
+  mifare->autopwn(); // 确保 mifare.h 里已经声明了 autopwn()
+  setState(true);
+}
+
+void MainWindow::on_MF_Attack_rf08sButton_clicked() {
+  setState(false);
+  mifare->scriptRf08s(); // 确保 mifare.h 里已经声明了 scriptrf08s()
+  setState(true);
 }
 
 
-void MainWindow::on_Set_Client_configPathEdit_editingFinished()
-{
-    settings->beginGroup("Client_Env");
-    settings->setValue("extConfigFilePath", ui->Set_Client_configPathEdit->text());
-    settings->endGroup();
-}
+void MainWindow::on_MF_RW_generateEmptyDataButton_clicked(){
+    // 1. 获取当前卡片的总块数 (例如 1k卡是 64块)
+    int blocks = mifare->cardType.block_size;
 
-void MainWindow::on_Set_Client_keepClientActiveBox_stateChanged(int arg1)
-{
-    settings->beginGroup("Client_keepClientActive");
-    keepClientActive = (arg1 == Qt::Checked);
-    settings->setValue("state", keepClientActive);
-    settings->endGroup();
-    emit setSerialListener(!keepClientActive);
-}
+    // 2. 遍历所有块，修改内存中的数据区
+    for (int i = 0; i < blocks; i++) {
+        if (i == 0) {
+            // 【核心安全机制】：跳过 0 块！绝对不碰卡号和厂商信息！
+            continue;
+        }
 
-void MainWindow::on_LF_LFConf_freqSlider_valueChanged(int value)
-{
-    onLFfreqConfChanged(value, true);
-}
+        // 判断当前块是不是密码控制块 (Trailer)
+        bool isTrailer = (i < 128 && ((i + 1) % 4 == 0)) || ((i + 1) % 16 == 0);
 
-void MainWindow::onLFfreqConfChanged(int divisor, bool isCustomized)
-{
-    ui->LF_LFConf_freqDivisorBox->blockSignals(true);
-    ui->LF_LFConf_freqSlider->blockSignals(true);
-
-    if(isCustomized)
-        ui->LF_LFConf_freqOtherButton->setChecked(true);
-    else if(divisor == 95)
-        ui->LF_LFConf_freq125kButton->setChecked(true);
-    else if(divisor == 88)
-        ui->LF_LFConf_freq134kButton->setChecked(true);
-    ui->LF_LFConf_freqLabel->setText(tr("Actural Freq: ") + QString("%1kHz").arg(LF::divisor2Freq(divisor), 0, 'f', 3));
-    ui->LF_LFConf_freqDivisorBox->setValue(divisor);
-    ui->LF_LFConf_freqSlider->setValue(divisor);
-
-    ui->LF_LFConf_freqDivisorBox->blockSignals(false);
-    ui->LF_LFConf_freqSlider->blockSignals(false);
-}
-
-void MainWindow::on_LF_LFConf_freqDivisorBox_valueChanged(int arg1)
-{
-    onLFfreqConfChanged(arg1, true);
-}
-
-void MainWindow::on_LF_LFConf_freq125kButton_clicked()
-{
-    onLFfreqConfChanged(95, false);
-}
-
-void MainWindow::on_LF_LFConf_freq134kButton_clicked()
-{
-    onLFfreqConfChanged(88, false);
-}
-
-void MainWindow::on_LF_Op_searchButton_clicked()
-{
-    setState(false);
-    lf->search();
-    setState(true);
-}
-
-void MainWindow::on_LF_Op_readButton_clicked()
-{
-    setState(false);
-    lf->read();
-    setState(true);
-}
-
-void MainWindow::on_LF_Op_tuneButton_clicked()
-{
-    setState(false);
-    lf->tune();
-    setState(true);
-}
-
-void MainWindow::on_LF_Op_sniffButton_clicked()
-{
-    setState(false);
-    lf->sniff();
-    setState(true);
-}
-
-void MainWindow::dockInit()
-{
-    setDockNestingEnabled(true);
-    QDockWidget* dock;
-    QWidget* widget;
-    int count = ui->funcTab->count();
-    qDebug() << "dock count" << count;
-    for(int i = 0; i < count; i++)
-    {
-        dock = new QDockWidget(ui->funcTab->tabText(0), this);
-        qDebug() << "dock name" << ui->funcTab->tabText(0);
-        dock->setFeatures(QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetMovable);// movable is necessary, otherwise the dock cannot be dragged
-        dock->setAllowedAreas(Qt::BottomDockWidgetArea);
-        dock->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        widget = ui->funcTab->widget(0);
-        dock->setWidget(widget);
-        if(widget->objectName() == "rawTab")
-            Util::setRawTab(dock, i);
-        addDockWidget(Qt::BottomDockWidgetArea, dock);
-        if(!dockList.isEmpty())
-            tabifyDockWidget(dockList[0], dock);
-        dockList.append(dock);
+        if (isTrailer) {
+            // 密码块恢复出厂设置：密码A/B均为 FFFFFFFFFFFF，控制位为 FF078069
+            mifare->data_setData(i, "FFFFFFFFFFFFFF078069FFFFFFFFFFFF");
+        } else {
+            // 普通数据块全部清零
+            mifare->data_setData(i, "00000000000000000000000000000000");
+        }
     }
-    ui->funcTab->setVisible(false);
-    dockList[0]->setVisible(true);
-    dockList[0]->raise();
-}
 
-void MainWindow::contextMenuEvent(QContextMenuEvent *event)
-{
-    contextMenu->exec(event->globalPos());
-}
+    // 3. 刷新数据到 GUI 面板 (参数 true 表示全量刷新)
+    mifare->data_syncWithDataWidget(true, 0);
 
-void MainWindow::on_LF_LFConf_getButton_clicked()
-{
-    setState(false);
-    lf->getLFConfig();
-    setState(true);
-}
+    // 4. 自动帮你勾选复选框（取消勾选0块，勾选其他所有块）
+    ui->MF_dataWidget->blockSignals(true);
+    ui->MF_selectAllBox->blockSignals(true);
 
-void MainWindow::on_LF_LFConf_setButton_clicked()
-{
-    LF::LFConfig config;
-    setState(false);
-    config.divisor = ui->LF_LFConf_freqDivisorBox->value();
-    config.bitsPerSample = ui->LF_LFConf_bitsPerSampleBox->value();
-    config.decimation = ui->LF_LFConf_decimationBox->value();
-    config.averaging = ui->LF_LFConf_averagingBox->isChecked();
-    config.triggerThreshold = ui->LF_LFConf_thresholdBox->value();
-    config.samplesToSkip = ui->LF_LFConf_skipsBox->value();
-    lf->setLFConfig(config);
-    Util::gotoRawTab();
-    setState(true);
-}
+    ui->MF_dataWidget->item(0, 1)->setCheckState(Qt::Unchecked); // 保护0块，不参与写入
+    for (int i = 1; i < blocks; i++) {
+        ui->MF_dataWidget->item(i, 1)->setCheckState(Qt::Checked); // 准备写入其他块
+    }
+    ui->MF_selectAllBox->setCheckState(Qt::PartiallyChecked); // 全选框置为半选状态
 
-void MainWindow::on_LF_LFConf_resetButton_clicked()
-{
-    setState(false);
-    lf->resetLFConfig();
-    setState(true);
-}
+    ui->MF_dataWidget->blockSignals(false);
+    ui->MF_selectAllBox->blockSignals(false);
 
-void MainWindow::on_Set_Client_configFileBox_currentIndexChanged(int index)
-{
-    ui->Set_Client_configPathEdit->setVisible(ui->Set_Client_configFileBox->itemData(index).toString() == "(ext)");
-    settings->beginGroup("Client_Env");
-    settings->setValue("configFile", ui->Set_Client_configFileBox->currentData());
-    settings->endGroup();
-}
-
-
-void MainWindow::on_Set_UI_Opacity_Box_valueChanged(int arg1)
-{
-    ui->Set_UI_Opacity_slider->blockSignals(true);
-    ui->Set_UI_Opacity_slider->setValue(arg1);
-    setWindowOpacity(arg1 / 100.0);
-    settings->beginGroup("UI");
-    settings->setValue("Opacity", ui->Set_UI_Opacity_Box->value());
-    settings->endGroup();
-    ui->Set_UI_Opacity_slider->blockSignals(false);
-}
-
-
-void MainWindow::on_Set_UI_Theme_setButton_clicked()
-{
-    settings->beginGroup("UI");
-    settings->setValue("Theme_Name", ui->Set_UI_Theme_nameBox->currentData().toString());
-    settings->endGroup();
-}
-
-
-void MainWindow::on_Set_UI_Font_setButton_clicked()
-{
-    QFont font = ui->Set_UI_Font_nameBox->currentFont();
-    font.setPointSize(ui->Set_UI_Font_sizeBox->value());
-    QApplication::setFont(font, "QWidget");
-
-    settings->beginGroup("UI");
-    settings->setValue("Font_Name", ui->Set_UI_Font_nameBox->currentFont().family());
-    settings->setValue("Font_Size", ui->Set_UI_Font_sizeBox->value());
-    settings->endGroup();
-}
-
-
-void MainWindow::on_Set_UI_DataFont_setButton_clicked()
-{
-    QFont font = ui->Set_UI_DataFont_nameBox->currentFont();
-    font.setPointSize(ui->Set_UI_DataFont_sizeBox->value());
-    ui->MF_dataWidget->setFont(font);
-    ui->MF_keyWidget->setFont(font);
-
-    settings->beginGroup("UI");
-    settings->setValue("DataFont_Name", ui->Set_UI_DataFont_nameBox->currentFont().family());
-    settings->setValue("DataFont_Size", ui->Set_UI_DataFont_sizeBox->value());
-    settings->endGroup();
-}
-
-
-void MainWindow::on_Set_UI_CMDFont_setButton_clicked()
-{
-    QFont font = ui->Set_UI_CMDFont_nameBox->currentFont();
-    font.setPointSize(ui->Set_UI_CMDFont_sizeBox->value());
-    ui->Raw_outputEdit->setFont(font);
-
-    settings->beginGroup("UI");
-    settings->setValue("CMDFont_Name", ui->Set_UI_CMDFont_nameBox->currentFont().family());
-    settings->setValue("CMDFont_Size", ui->Set_UI_CMDFont_sizeBox->value());
-    settings->endGroup();
+    // 5. 贴心弹窗提示
+    QMessageBox::information(this, tr("洗白准备就绪"),
+                             tr("面板数据已转换为初始白卡状态！\n\n"
+                                "✅ 第 0 块（卡号与厂商信息）已为您保留，不会被覆盖。\n"
+                                "✅ 其他所有数据块已改为 00。\n"
+                                "✅ 所有密码已重置为 FFFFFFFFFFFF。\n\n"
+                                "👉 写入提示：请确保加密卡仍在读卡器上，直接点击面板上的【Write Selected (写入选中块)】即可完成洗白！"));
 }
 

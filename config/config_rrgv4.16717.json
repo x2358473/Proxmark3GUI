@@ -48,7 +48,7 @@
             "key B index": 4
         },
         "info": {
-            "cmd": "hf 14a info -nsv",
+            "cmd": "hf mf info",
             "basic cmd": "hf 14a info"
         },
         "sniff": {
@@ -105,8 +105,8 @@
         },
         "save sniff": {
             "cmd": "trace save -f <filename>",
-            "path cmd":"prefs show",
-            "path pattern":"trace save path\\.+\\s*(.+)$"
+            "path cmd": "prefs show",
+            "path pattern": "trace save path\\.+\\s*(.+)$"
         },
         "load sniff": {
             "cmd": "trace load -f <filename>",
