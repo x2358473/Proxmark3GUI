@@ -12,6 +12,7 @@
 #include <QHBoxLayout>
 #include <QFileDialog>
 #include <QDir>
+#include <QRegularExpressionValidator> // 如果没有包含，请在顶部加上这个以支持正则输入限制
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -327,7 +328,7 @@ void MainWindow::refreshOutput(const QString &output) {
   if (!suggestTimer) {
       suggestTimer = new QTimer(this);
       suggestTimer->setSingleShot(true);
-      suggestTimer->setInterval(500); // 延迟 500 毫秒，等待 PM3 这批输出全部到达
+      suggestTimer->setInterval(500);
 
       connect(suggestTimer, &QTimer::timeout, this, [this]() {
           QString allText = ui->Raw_outputEdit->toPlainText();
@@ -336,25 +337,24 @@ void MainWindow::refreshOutput(const QString &output) {
               prefix = tr("检测到 Gen 2 / CUID 魔术卡：\n\n");
           }
 
-          // 倒计时结束，根据最终锁定的最高威胁等级，只弹出一个窗口
           if (currentVulnLevel == 4) {
               QMessageBox::information(this, tr("三代卡检测"),
-                                       prefix + tr("【读取到复旦三代无漏洞卡 (FM11RF08S)】\n\n该卡免疫传统的 Nested 攻击。\n\n👉 建议：直接点击界面上的【解三代卡】按钮运行自动化脚本。"));
+                                       prefix + tr("【读取到复旦三代无漏洞卡 (FM11RF08S)】\n\n该卡免疫传统的 Nested 攻击。\n\n👉 建议步骤：直接点击【解三代卡】运行脚本。"));
           }
           else if (currentVulnLevel == 3) {
               QMessageBox::information(this, tr("破解建议"),
-                                       prefix + tr("【检测到静态随机数 (Static Nonce) 漏洞】\n\n👉 建议：使用【知一求全】破解，程序会自动切换至 staticnested 攻击，成功率极高且速度极快。"));
+                                       prefix + tr("【检测到静态随机数 (Static Nonce) 漏洞】\n\n👉 操作建议：\n1. 请先点击上方【(2)扫描默认密码】获取至少一个密钥。\n2. 再点击【知一求全】破解，程序将极速秒解。"));
           }
           else if (currentVulnLevel == 2) {
               QMessageBox::information(this, tr("破解建议"),
-                                       prefix + tr("【检测到弱随机数 (Weak PRNG) 漏洞】\n\n👉 建议：使用【知一求全】破解。"));
+                                       prefix + tr("【检测到弱随机数 (Weak PRNG) 漏洞】\n\n👉 操作建议：\n1. 请先点击上方【(2)扫描默认密码】。\n2. 再点击【知一求全】进行常规破解。"));
           }
           else if (currentVulnLevel == 1) {
               QMessageBox::information(this, tr("破解建议"),
-                                       prefix + tr("【检测到强化加密 (Hardened) 卡片】\n\n该卡已修复 Nested 漏洞，无法直接通过常规方式破解。\n\n👉 建议：使用【Hardnested】攻击，需配合已知密码。"));
+                                       prefix + tr("【检测到强化加密 (Hardened) 卡片】\n\n该卡已修复常规漏洞。\n\n👉 操作建议：\n1. 请先点击上方【(2)扫描默认密码】碰碰运气。\n2. 如果扫描到了至少一个密码，使用【Hardnested攻击】进行深度破解。"));
           }
 
-          currentVulnLevel = 0; // 弹窗后必须重置等级，为下次刷卡做准备
+          currentVulnLevel = 0;
       });
   }
 
@@ -874,6 +874,62 @@ void MainWindow::on_MF_File_clearButton_clicked() {
 
 void MainWindow::on_MF_Attack_infoButton_clicked() { mifare->info(); }
 
+// 有bug
+// void MainWindow::on_MF_Attack_infoButton_clicked() {
+//     setState(false); // 禁用界面，防止乱点
+
+//     // 强制发送完整的 hf mf info 命令，并等待最长 3000 毫秒（因为漏洞检测耗时较长）
+//     QString result = util->execCMDWithOutput(
+//         "hf mf info",
+//         Util::ReturnTrigger(6000, {"Prng", "Hardened", "Can't found", "No valid", "fm11rf08s"})
+//         );
+
+//     setState(true);  // 恢复界面
+
+//     // 检查是否成功读取
+//     if (result.isEmpty() || result.contains("Can't found", Qt::CaseInsensitive) || result.contains("No valid", Qt::CaseInsensitive)) {
+//         QMessageBox::warning(this, tr("读取失败"), tr("未检测到卡片，请调整卡片位置后重试！"));
+//         return;
+//     }
+
+//     // 1. 提取基本信息 (UID, ATQA, SAK)
+//     QString uid = "-", atqa = "-", sak = "-";
+//     QStringList lines = result.split("\n");
+//     for (const QString &line : lines) {
+//         if (line.contains("UID")) uid = QString(line).remove("UID").remove(QRegularExpression("[^0-9a-fA-F]")).trimmed();
+//         else if (line.contains("ATQA")) atqa = QString(line).remove("ATQA").remove(QRegularExpression("[^0-9a-fA-F]")).trimmed();
+//         else if (line.contains("SAK")) sak = QString(line).remove("SAK").remove(QRegularExpression("\\[.+?\\]")).remove(QRegularExpression("[^0-9a-fA-F]")).trimmed();
+//     }
+
+//     // 2. 融合你的“智能破解建议”逻辑 (直接从 result 中解析，不再依赖控制台延迟触发)
+//     QString vulnHint = tr("👉 建议步骤：请点击上方【(2)扫描默认密码】(Chk) 碰碰运气。"); // 默认兜底建议
+
+//     if (result.contains("Hint: Try `script run fm11rf08s_recovery.py", Qt::CaseInsensitive)) {
+//         vulnHint = tr("【检测到复旦三代无漏洞卡 (FM11RF08S)】\n👉 建议步骤：直接点击【解三代卡】运行脚本。");
+//     } else if (result.contains("[+] Static nonce... yes", Qt::CaseInsensitive) || result.contains("[+] Static enc nonce... yes", Qt::CaseInsensitive)) {
+//         vulnHint = tr("【检测到静态随机数 (Static Nonce) 漏洞】\n👉 操作建议：先点击【(2)扫描默认密码】，再点击【知一求全】极速秒解。");
+//     } else if (result.contains("[+] Prng....... weak", Qt::CaseInsensitive)) {
+//         vulnHint = tr("【检测到弱随机数 (Weak PRNG) 漏洞】\n👉 操作建议：先点击【(2)扫描默认密码】，再点击【知一求全】常规破解。");
+//     } else if (result.contains("Hardened MIFARE Classic", Qt::CaseInsensitive)) {
+//         vulnHint = tr("【检测到强化加密 (Hardened) 卡片】\n👉 操作建议：先点击【(2)扫描默认密码】，如果扫到密码，再使用【Hardnested攻击】。");
+//     }
+
+//     // 3. 拼接终极弹窗展示
+//     QString msg = tr("读取卡片信息成功！\n\n"
+//                      "卡号 (UID): %1\n"
+//                      "厂商 (ATQA): %2\n"
+//                      "类型 (SAK): %3\n\n"
+//                      "------------------------\n"
+//                      "%4")
+//                       .arg(uid, atqa, sak, vulnHint);
+
+//     QMessageBox::information(this, tr("第一步：卡片状态与破解诊断"), msg);
+
+//     // 4. (可选) 将完整的输出同步显示在底部的 Raw 控制台中，方便高级用户看日志
+//     refreshCMD("hf mf info");
+//     refreshOutput(result);
+// }
+
 void MainWindow::on_MF_Attack_chkButton_clicked() {
   setState(false);
   mifare->chk();
@@ -897,9 +953,22 @@ void MainWindow::on_MF_RW_readSelectedButton_clicked() {
 }
 
 void MainWindow::on_MF_RW_readBlockButton_clicked() {
-  setState(false);
-  mifare->readOne(Mifare::TARGET_MIFARE);
-  setState(true);
+    setState(false);
+    mifare->readOne(Mifare::TARGET_MIFARE);
+    setState(true);
+
+    // === 新增：如果读取的是 0 块且读取成功，给出防砖提示 ===
+    if (ui->MF_RW_blockBox->currentText() == "0") {
+        QString data = ui->MF_RW_dataEdit->text();
+        // 如果数据不为空，且没有包含 "Failed!"（代表读取成功了）
+        if (!data.isEmpty() && !data.contains("Failed!", Qt::CaseInsensitive)) {
+            QMessageBox::information(this, tr("防砖提示"),
+                                     tr("您刚刚读取了第 0 块（包含卡号和厂商信息）。\n\n"
+                                        "⚠️ 警告：请不要直接在下方的数据框中手动修改！\n"
+                                        "手动修改极易导致 BCC 校验和错误，从而使卡片永久变砖。\n\n"
+                                        "👉 建议操作：请点击右侧的【修改卡号】按钮，使用专用的修改器来安全改写卡号。"));
+        }
+    }
 }
 
 void MainWindow::on_MF_RW_writeBlockButton_clicked() {
@@ -1981,9 +2050,28 @@ void MainWindow::on_Set_UI_CMDFont_setButton_clicked() {
 // 确保函数名 on_MF_Attack_autopwnButton_clicked
 // 这里的 MF_Attack_autopwnButton 必须是你 UI 里的按钮 ID
 void MainWindow::on_MF_Attack_autopwnButton_clicked() {
-  setState(false);
-  mifare->autopwn(); // 确保 mifare.h 里已经声明了 autopwn()
-  setState(true);
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("一键破解 (Autopwn) 提示"));
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setTextFormat(Qt::RichText);
+    msgBox.setText(tr("即将开始全自动一键破解。<br><br>"
+                      "⚠️ <b>重要提醒 (防变砖)：</b><br>"
+                      "受底层程序的特性限制，一键破解自动导出的 Dump 文件中有时会将隐藏的 <b>KeyB 强行填充为全 0</b>！<br><br>"
+                      "👉 如果您破解完毕后准备【克隆写卡】，<b>强烈建议</b>不要直接使用它自动保存的文件，而是：<br>"
+                      "1. 等待破解结束，密码自动同步到右侧面板。<br>"
+                      "2. 点击下方读取面板的【读取选中块】读出卡片的完整真实数据。<br>"
+                      "3. 点击下方的【导出数据】来保存最终安全的写卡文件！<br><br>"
+                      "是否确认开始破解？"));
+    QPushButton *continueBtn = msgBox.addButton(tr("我已知晓，开始破解"), QMessageBox::AcceptRole);
+    msgBox.addButton(tr("取消 (Cancel)"), QMessageBox::RejectRole);
+    msgBox.setDefaultButton(continueBtn);
+
+    msgBox.exec();
+    if (msgBox.clickedButton() != continueBtn) return; // 拦截：点取消就终止
+
+    setState(false);
+    mifare->autopwn();
+    setState(true);
 }
 
 void MainWindow::on_MF_Attack_rf08sButton_clicked() {
@@ -2164,5 +2252,190 @@ void MainWindow::on_MF_File_compareButton_clicked(){
             QMessageBox::information(this, tr("错误"), tr("无法打开文件:\n") + filename);
         }
     }
+}
+
+
+void MainWindow::on_MF_RW_modifyCardCodeButton_clicked(){
+    // === 🚨 防护 1：检查是否选择了 0 块 ===
+    if (ui->MF_RW_blockBox->currentText() != "0") {
+        QMessageBox::warning(this, tr("操作提示"),
+                             tr("修改卡号 (UID) 必须在 0 块进行！\n👉 请在左侧下拉框中将 Block 设置为 0。"));
+        return;
+    }
+
+    // === 🚨 防护 2：检查是否已经读取了数据 ===
+    QString currentData = ui->MF_RW_dataEdit->text().remove(" ").toUpper();
+    if (currentData.length() != 32 || currentData == "00000000000000000000000000000000") {
+        QMessageBox::warning(this, tr("操作提示"),
+                             tr("当前 0 块数据为空或无效！\n👉 请先将卡片放在读卡器上，点击【读取单个块】读取 0 块数据。"));
+        return;
+    }
+
+    // === 🚨 防护 3：防砖校验 (提取原卡数据并验证 BCC) ===
+    QString origUid = currentData.left(8);
+    QString origBcc = currentData.mid(8, 2);
+    QString origTail = currentData.right(22); // SAK(2) + ATQA(4) + 厂商信息(16)
+
+    quint8 calcOrigBcc = 0;
+    for(int i = 0; i < 4; i++) {
+        calcOrigBcc ^= origUid.mid(i * 2, 2).toUInt(nullptr, 16);
+    }
+    QString calcOrigBccStr = QString::number(calcOrigBcc, 16).rightJustified(2, '0').toUpper();
+
+    if (calcOrigBccStr != origBcc) {
+        QMessageBox::critical(this, tr("危险拦截 (防变砖)"),
+                              tr("当前数据的 BCC 校验和不匹配！\n\n可能原因：\n1. 这是一张 7 字节长 UID 卡\n2. 数据读取不完整\n\n为防止强行写入导致卡片报废，已自动拦截修改操作！"));
+        return;
+    }
+
+    // === ✨ 构建高颜值弹窗 ===
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("智能卡号 (UID) 修改器"));
+    dialog.setMinimumWidth(550); // 加宽以容纳漂亮的拆解视图
+
+    QFormLayout form(&dialog);
+    form.setSizeConstraint(QLayout::SetFixedSize); // 高度随内容自动适应
+
+    // ======== 第一部分：原卡信息 ========
+    form.addRow(new QLabel(tr("<span style='color: #666666;'><b>【第一部分：当前原卡信息】</b></span>")));
+
+    QLineEdit *origUidEdit = new QLineEdit(&dialog);
+    origUidEdit->setText(origUid);
+    origUidEdit->setReadOnly(true);
+    origUidEdit->setStyleSheet("background-color: #f0f0f0; color: #666666;");
+    origUidEdit->setAlignment(Qt::AlignCenter);
+    form.addRow(tr("原卡 UID:"), origUidEdit);
+
+    form.addRow(new QLabel(" ")); // 空行分隔
+
+    // ======== 第二部分：修改设置 ========
+    form.addRow(new QLabel(tr("<span style='color: #1976D2;'><b>【第二部分：设置新卡号】</b></span>")));
+
+    QLabel *hintLabel = new QLabel(tr("输入 8 位 16 进制字符，程序将自动计算 BCC 校验码。"));
+    hintLabel->setStyleSheet("color: #888888; font-size: 12px;");
+    form.addRow(hintLabel);
+
+    QLineEdit *newUidEdit = new QLineEdit(&dialog);
+    newUidEdit->setText(origUid);
+    newUidEdit->setMaxLength(8);
+    newUidEdit->setAlignment(Qt::AlignCenter);
+
+    QRegularExpression rx("^[0-9a-fA-F]{8}$");
+    newUidEdit->setValidator(new QRegularExpressionValidator(rx, this));
+
+    QLabel *bccLabel = new QLabel(&dialog);
+    bccLabel->setStyleSheet("color: #E53935; font-weight: bold;");
+
+    QHBoxLayout *uidLayout = new QHBoxLayout();
+    uidLayout->addWidget(newUidEdit);
+    uidLayout->addWidget(new QLabel("  自动 BCC: "));
+    uidLayout->addWidget(bccLabel);
+    form.addRow(tr("新 UID:"), uidLayout);
+
+    form.addRow(new QLabel(" ")); // 空白间距
+
+    // ======== 第三部分：终极高颜值数据拆解视图 ========
+    QWidget *previewWidget = new QWidget(&dialog);
+    QHBoxLayout *previewLayout = new QHBoxLayout(previewWidget);
+    previewLayout->setContentsMargins(0, 0, 0, 0);
+    previewLayout->setSpacing(8); // 各区块间距
+
+    // 格式化辅助函数：给 Hex 加空格
+    auto formatHex = [](const QString& hexStr) {
+        QString res;
+        for(int i = 0; i < hexStr.length(); i += 2) res += hexStr.mid(i, 2) + " ";
+        return res.trimmed();
+    };
+
+    // UI 构建辅助函数：创建单个拆解区块
+    auto createBlock = [](const QString& title, QLabel*& dataLabel) -> QVBoxLayout* {
+        QVBoxLayout *vbox = new QVBoxLayout();
+        vbox->setSpacing(2);
+
+        dataLabel = new QLabel();
+        dataLabel->setStyleSheet("font-family: Consolas, monospace; font-size: 14px; color: #43A047;");
+        dataLabel->setAlignment(Qt::AlignCenter);
+
+        QFrame *line = new QFrame(); // 红线
+        line->setFrameShape(QFrame::HLine);
+        line->setStyleSheet("color: #E53935; background-color: #E53935; max-height: 2px;");
+
+        QLabel *titleLabel = new QLabel(title);
+        titleLabel->setStyleSheet("color: #E53935; font-size: 11px; font-weight: bold;");
+        titleLabel->setAlignment(Qt::AlignCenter);
+
+        vbox->addWidget(dataLabel);
+        vbox->addWidget(line);
+        vbox->addWidget(titleLabel);
+        return vbox;
+    };
+
+    // 声明负责显示的 Label 指针
+    QLabel *uidDataLabel, *bccDataLabel, *ataDataLabel, *manuDataLabel;
+
+    previewLayout->addLayout(createBlock("UID", uidDataLabel));
+    previewLayout->addLayout(createBlock("BCC", bccDataLabel));
+    previewLayout->addLayout(createBlock("SAK/ATQA", ataDataLabel));
+    previewLayout->addLayout(createBlock("厂商数据", manuDataLabel));
+
+    // 初始化固定不变的数据尾巴 (SAK+ATQA = 6位，厂商数据 = 16位)
+    ataDataLabel->setText(formatHex(origTail.left(6)));
+    manuDataLabel->setText(formatHex(origTail.right(16)));
+
+    form.addRow(tr("数据预览:"), previewWidget);
+
+    // 用来存放最终给写卡用的无空格的 32 位文本
+    QString finalDataToSave;
+
+    // === 动态计算与联动 ===
+    auto updatePreview = [&]() {
+        QString inputUid = newUidEdit->text().toUpper();
+        if (inputUid.length() == 8) {
+            quint8 newBcc = 0;
+            for(int i = 0; i < 4; i++) {
+                newBcc ^= inputUid.mid(i * 2, 2).toUInt(nullptr, 16);
+            }
+            QString newBccStr = QString::number(newBcc, 16).rightJustified(2, '0').toUpper();
+
+            // 联动更新文本
+            bccLabel->setText(newBccStr);
+            uidDataLabel->setText(formatHex(inputUid));
+            bccDataLabel->setText(newBccStr);
+
+            // 记录好无空格的最终版准备回填
+            finalDataToSave = inputUid + newBccStr + origTail;
+        } else {
+            bccLabel->setText("等待...");
+            uidDataLabel->setText("-");
+            bccDataLabel->setText("-");
+        }
+    };
+
+    QObject::connect(newUidEdit, &QLineEdit::textChanged, updatePreview);
+    updatePreview(); // 初始刷一次
+
+    form.addRow(new QLabel(" "));
+
+    // ======== 确认按钮 ========
+    QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
+    form.addRow(&buttonBox);
+    QObject::connect(&buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(&buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    // === 弹窗处理结果 ===
+    if (dialog.exec() == QDialog::Accepted) {
+        if (newUidEdit->text().length() != 8) {
+            QMessageBox::warning(this, tr("错误"), tr("UID 长度必须正好是 8 个字符！"));
+            return;
+        }
+
+        // 写入到界面的 Data 输入框中 (无空格版，防止UI越界)
+        ui->MF_RW_dataEdit->setText(finalDataToSave);
+
+        QMessageBox::information(this, tr("准备就绪"),
+                                 tr("新数据已填入 Data 框中。\n\n"
+                                    "👉 点击下方的【写入单个块】按钮即可写入卡片！"));
+    }
+
 }
 
