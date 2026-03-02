@@ -230,6 +230,8 @@ private slots:
 
   void on_MF_File_compareButton_clicked();
 
+  void on_MF_RW_modifyCardCodeButton_clicked();
+
   private:
   Ui::MainWindow *ui;
   QButtonGroup *MFCardTypeBtnGroup;

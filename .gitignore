@@ -1,3 +1,26 @@
 /build*
 /data
 .DS_Store
+
+# 排除所有 build 文件夹
+build*/
+
+# 排除特定的索引和配置文件
+*.idx
+*.user
+*.bak
+
+# 排除编译生成的二进制文件
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.app
+
+# 排除 Qt 自动生成的代码
+ui_*.h
+moc_*.cpp
+qrc_*.cpp

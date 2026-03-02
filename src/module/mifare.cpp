@@ -170,6 +170,24 @@ void Mifare::chk() {
 }
 
 void Mifare::nested(bool isStaticNested) {
+    // === ✨ 新增：强制前置检查 (是否扫描过默认密码) ===
+    if (!isStaticNested) {
+        bool hasKnownKey = false;
+        for (int i = 0; i < cardType.sector_size; i++) {
+            if (data_isKeyValid(keyAList->at(i)) || data_isKeyValid(keyBList->at(i))) {
+                hasKnownKey = true;
+                break;
+            }
+        }
+        if (!hasKnownKey) {
+            QMessageBox::warning(parent, tr("前置条件不足 (缺少已知密钥)"),
+                                 tr("未检测到任何已知密钥！\n\n"
+                                    "执行 Nested (知一求全) 攻击必须至少已知一个扇区的密码作为跳板。\n\n"
+                                    "👉 请先点击上方的【(2)扫描默认密码】获取初始密钥。"));
+            return; // 强行拦截
+        }
+    }
+    // ==========================================
     QVariantMap config = configMap["nested"].toMap();
     QString cmd = isStaticNested ? config["static cmd"].toString() : config["cmd"].toString();
 
@@ -242,11 +260,17 @@ void Mifare::nested(bool isStaticNested) {
 
         form.addRow(new QLabel(tr(" "))); // 空行分隔
 
-        // ======== 确认按钮 ========
-        QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
-        form.addRow(&buttonBox);
-        QObject::connect(&buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-        QObject::connect(&buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        // ======== ✨ 修复：确认按钮逻辑 ========
+        QDialogButtonBox *buttonBox = new QDialogButtonBox(Qt::Horizontal, &dialog);
+        QPushButton *okBtn = new QPushButton(tr("确定 (OK)"));
+        QPushButton *cancelBtn = new QPushButton(tr("取消 (Cancel)"));
+        buttonBox->addButton(okBtn, QDialogButtonBox::AcceptRole);
+        buttonBox->addButton(cancelBtn, QDialogButtonBox::RejectRole);
+        form.addRow(buttonBox);
+
+        // 绑定信号，确保关闭动作绝对生效
+        QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
         if (dialog.exec() == QDialog::Accepted) {
             finalKey = keyEdit->text().remove(" ").toUpper();
@@ -296,6 +320,22 @@ void Mifare::nested(bool isStaticNested) {
 }
 
 void Mifare::hardnested() {
+    // === ✨ 新增：强制前置检查 ===
+    bool hasKnownKey = false;
+    for (int i = 0; i < cardType.sector_size; i++) {
+        if (data_isKeyValid(keyAList->at(i)) || data_isKeyValid(keyBList->at(i))) {
+            hasKnownKey = true;
+            break;
+        }
+    }
+    if (!hasKnownKey) {
+        QMessageBox::warning(parent, tr("前置条件不足 (缺少已知密钥)"),
+                             tr("未检测到任何已知密钥！\n\n"
+                                "执行 Hardnested 攻击必须至少已知一个扇区的密码作为跳板。\n\n"
+                                "👉 请先点击上方的【(2)扫描默认密码】获取初始密钥。"));
+        return; // 强行拦截
+    }
+    // ==========================================
     QVariantMap config = configMap["hardnested"].toMap();
     QString cmd = config["cmd"].toString();
 
@@ -374,11 +414,16 @@ void Mifare::hardnested() {
 
     form.addRow(new QLabel(tr(" "))); // 空行分隔
 
-    // ======== 确认按钮 ========
-    QDialogButtonBox buttonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, Qt::Horizontal, &dialog);
-    form.addRow(&buttonBox);
-    QObject::connect(&buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    QObject::connect(&buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    // 同样，把底部的 ButtonBox 替换成稳健的写法：
+    QDialogButtonBox *buttonBox = new QDialogButtonBox(Qt::Horizontal, &dialog);
+    QPushButton *okBtn = new QPushButton(tr("确定 (OK)"));
+    QPushButton *cancelBtn = new QPushButton(tr("取消 (Cancel)"));
+    buttonBox->addButton(okBtn, QDialogButtonBox::AcceptRole);
+    buttonBox->addButton(cancelBtn, QDialogButtonBox::RejectRole);
+    form.addRow(buttonBox);
+
+    QObject::connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
     // --- 4. 捕获输入，自动计算 Block，执行攻击 ---
     if (dialog.exec() == QDialog::Accepted) {
@@ -410,10 +455,27 @@ void Mifare::hardnested() {
 }
 
 void Mifare::darkside() {
-  QVariantMap config = configMap["darkside"].toMap();
-  util->execCMD(config["cmd"].toString());
+    QMessageBox msgBox(parent);
+    msgBox.setWindowTitle(tr("Darkside 攻击提示"));
+    msgBox.setIcon(QMessageBox::Information);
+    msgBox.setTextFormat(Qt::RichText); // 👈 强制开启富文本
+    msgBox.setText(tr("您即将执行 Darkside 攻击。<br><br>" // 👈 换成 <br>
+                      "<b>适用场景：</b><br>"
+                      "全扇区全加密，且【(2)扫描默认密码】找不到任何密码的老旧 Mifare 卡。<br><br>"
+                      "⚠️ <b>重要注意事项：</b><br>"
+                      "1. 攻击耗时极不稳定，可能需要几分钟到几十分钟。<br>"
+                      "2. 如果您的卡片是修复了漏洞的新卡，程序会一直卡死且没有进度。<br>"
+                      "👉 如果长时间未出结果，请点击右下角的【Stop】强制停止！"));
+    QPushButton *continueBtn = msgBox.addButton(tr("开始探测"), QMessageBox::AcceptRole);
+    msgBox.addButton(tr("取消 (Cancel)"), QMessageBox::RejectRole);
+    msgBox.setDefaultButton(continueBtn);
 
-  Util::gotoRawTab();
+    msgBox.exec();
+    if (msgBox.clickedButton() != continueBtn) return;
+
+    QVariantMap config = configMap["darkside"].toMap();
+    util->execCMD(config["cmd"].toString());
+    Util::gotoRawTab();
 }
 
 void Mifare::sniff() {
@@ -599,16 +661,27 @@ QStringList Mifare::_readsec(int sectorId, KeyType keyType, const QString &key,
 }
 
 void Mifare::readOne(TargetType targetType) {
-  int blockId = ui->MF_RW_blockBox->currentText().toInt();
-  Mifare::KeyType keyType =
-      (Mifare::KeyType)(ui->MF_RW_keyTypeBox->currentData().toInt());
-  QString result = _readblk(blockId, keyType,
-                            ui->MF_RW_keyEdit->text().toUpper(), targetType);
-  if (result != "") {
-    ui->MF_RW_dataEdit->setText(result);
-  } else {
-    ui->MF_RW_dataEdit->setText(tr("Failed!"));
-  }
+    int blockId = ui->MF_RW_blockBox->currentText().toInt();
+    Mifare::KeyType keyType =
+        (Mifare::KeyType)(ui->MF_RW_keyTypeBox->currentData().toInt());
+    QString key = ui->MF_RW_keyEdit->text().toUpper();
+
+    // === ✨ 新增：单块读取前密码有效性检查 ===
+    if (targetType == TARGET_MIFARE && !data_isKeyValid(key)) {
+        QMessageBox::warning(parent, tr("读取提示 (缺少密码)"),
+                             tr("当前输入的密钥为空或无效（如包含 '?'）。\n\n"
+                                "读取普通卡(Mifare)必须提供有效密码！\n"
+                                "👉 请先点击面板上方的【检查默认密码】来获取卡片密码。"));
+        return; // 拦截操作
+    }
+    // ==========================================
+
+    QString result = _readblk(blockId, keyType, key, targetType);
+    if (result != "") {
+        ui->MF_RW_dataEdit->setText(result);
+    } else {
+        ui->MF_RW_dataEdit->setText(tr("Failed!"));
+    }
 }
 
 void Mifare::readSelected(TargetType targetType) {
@@ -626,7 +699,43 @@ void Mifare::readSelected(TargetType targetType) {
   for (int item : selectedBlocks) {
     selectedSectors[data_b2s(item)] = true;
   }
+  // === ✨ 新增：批量读取前密码有效性智能检查 ===
+  if (targetType == TARGET_MIFARE) {
+      int missingKeySectors = 0;
+      for (int i = 0; i < cardType.sector_size; i++) {
+          if (selectedSectors[i]) {
+              // 如果选中的扇区，其 A 密码和 B 密码都无效，说明该扇区必定无法读取
+              if (!data_isKeyValid(keyAList->at(i)) && !data_isKeyValid(keyBList->at(i))) {
+                  missingKeySectors++;
+              }
+          }
+      }
 
+      if (missingKeySectors > 0) {
+          QMessageBox msgBox(parent);
+          msgBox.setWindowTitle(tr("读取提示 (缺少密码)"));
+          msgBox.setIcon(QMessageBox::Warning);
+          msgBox.setText(tr("检测到您勾选的扇区中有 <b>%1</b> 个扇区尚未获取密码（显示为 '?'）。\n\n"
+                            "直接读取会导致这些扇区读取失败！\n\n"
+                            "👉 <b>建议</b>：点击【中止】，先去点击上方的【检查默认密码】。\n"
+                            "👉 <b>强行读取</b>：点击【强行读取】继续执行（无密码的块将被留空）。").arg(missingKeySectors));
+
+          // 添加全中文的自定义按钮
+          QPushButton *abortBtn = msgBox.addButton(tr("中止读取 (Abort)"), QMessageBox::RejectRole);
+          QPushButton *ignoreBtn = msgBox.addButton(tr("强行读取 (Ignore)"), QMessageBox::AcceptRole);
+
+          // 设置默认按钮为安全的中止操作
+          msgBox.setDefaultButton(abortBtn);
+
+          msgBox.exec();
+
+          // 判断用户点击了哪个按钮
+          if (msgBox.clickedButton() == abortBtn) {
+              return; // 听劝，中止读取操作，等待用户去点 chk
+          }
+      }
+  }
+  // ==========================================
   for (int i = 0; i < cardType.sector_size; i++) {
     if (!selectedSectors[i])
       continue;
@@ -798,31 +907,73 @@ void Mifare::writeSelected(TargetType targetType) {
     if (ui->MF_dataWidget->item(i, 1)->checkState() == Qt::Checked)
       selectedBlocks.append(i);
   }
+  // ==========================================
+  // ✨ 新增：强力数据有效性拦截 (防变砖、防报错)
+  // ==========================================
+  int emptyOrInvalidCount = 0;
+  for (int item : selectedBlocks) {
+      // 获取当前块的数据 (先复制，再去除空格和转大写，解决编译报错)
+      QString blockData = dataList->at(item);
+      blockData.remove(" ");
+      blockData = blockData.toUpper();
+
+      // 检查：如果为空、长度不够 32 位、或者是全 ? 无法识别的数据
+      if (blockData.isEmpty() || blockData.length() != 32 || blockData.contains("?")) {
+          emptyOrInvalidCount++;
+      }
+  }
+
+  if (emptyOrInvalidCount > 0) {
+      QMessageBox::critical(parent, tr("危险拦截 (写入失败)"),
+                            tr("<html>检测到您勾选的块中有 <b>%1</b> 个块的数据为空或包含无效字符('?')！<br><br>"
+                               "盲目写入空数据会直接导致卡片扇区损坏 (永久变砖)。<br><br>"
+                               "👉 <b>正确操作步骤：</b><br>"
+                               "1. 先点击【检查默认密码】或【一键破解】获取密码。<br>"
+                               "2. 再点击【读取选中块】将真实的卡片数据读出到面板上。<br>"
+                               "3. 确认数据面板不再是空或 '?' 时，才能执行写入操作。</html>").arg(emptyOrInvalidCount));
+      return;
+  }
+
+  // =======================================================
   for (int item : selectedBlocks) {
     bool result = false;
     bool isTrailerBlock =
         (item < 128 && ((item + 1) % 4 == 0)) || ((item + 1) % 16 == 0);
 
-    if (isTrailerBlock && !data_isACBitsValid(dataList->at(item).mid(
-                              12, 8))) // trailer block is invalid
+    if (isTrailerBlock && !data_isACBitsValid(dataList->at(item).mid(12, 8))) // trailer block is invalid
     {
-      if (!yes2All && !no2All) {
-        QMessageBox::StandardButton choice = QMessageBox::information(
-            parent, tr("Info"),
-            tr("The Access Bits is invalid!\nIt could make the whole sector "
-               "blocked irreversibly!\nContinue to write?"),
-            QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No |
-                QMessageBox::NoToAll);
-        if (choice == QMessageBox::No)
-          continue;
-        else if (choice == QMessageBox::YesToAll)
-          yes2All = true;
-        else if (choice == QMessageBox::NoToAll) {
-          no2All = true;
-          continue;
+        if (!yes2All && !no2All) {
+            QMessageBox msgBox(parent);
+            msgBox.setWindowTitle(tr("危险警告 (非法控制位)"));
+            msgBox.setIcon(QMessageBox::Critical); // 使用红色的叉叉图标，更醒目
+            msgBox.setText(tr("当前密码块的控制位 (Access Bits) 非法！\n"
+                              "强行写入极有可能导致该扇区永久锁死（报废）。\n\n"
+                              "是否继续强行写入？"));
+
+            // 自定义全中文按钮
+            QPushButton *yesBtn = msgBox.addButton(tr("继续写入"), QMessageBox::AcceptRole);
+            QPushButton *yesToAllBtn = msgBox.addButton(tr("全部强写 (Yes to All)"), QMessageBox::AcceptRole);
+            QPushButton *noBtn = msgBox.addButton(tr("跳过此块"), QMessageBox::RejectRole);
+            QPushButton *noToAllBtn = msgBox.addButton(tr("全部跳过 (No to All)"), QMessageBox::RejectRole);
+
+            // 安全起见，把默认高亮的焦点放在“跳过”上
+            msgBox.setDefaultButton(noBtn);
+            msgBox.exec();
+
+            // 判断点击结果
+            if (msgBox.clickedButton() == noBtn) {
+                continue;
+            } else if (msgBox.clickedButton() == yesToAllBtn) {
+                yes2All = true;
+            } else if (msgBox.clickedButton() == noToAllBtn) {
+                no2All = true;
+                continue;
+            }
+            // 如果点的是 yesBtn (继续写入)，则什么都不做，让代码继续往下执行即可
+
+        } else if (no2All) {
+            continue;
         }
-      } else if (no2All)
-        continue;
     }
 
     if (targetType == TARGET_MIFARE) {
@@ -865,18 +1016,28 @@ void Mifare::writeSelected(TargetType targetType) {
       if (counter == 0)
         suffix += "\n";
     }
-    QMessageBox::StandardButton res =
-        QMessageBox::information(parent, tr("Info"),
-                                 tr("Failed to write to these blocks:") + "\n" +
-                                     suffix + "\n" + tr("Select them?"),
-                                 QMessageBox::Yes | QMessageBox::No);
-    if (res == QMessageBox::Yes) {
-      for (int item : selectedBlocks) {
-        ui->MF_dataWidget->item(item, 1)->setCheckState(Qt::Unchecked);
-      }
-      for (int failedBlk : failedBlocks) {
-        ui->MF_dataWidget->item(failedBlk, 1)->setCheckState(Qt::Checked);
-      }
+    // 构建自定义弹窗
+    QMessageBox msgBox(parent);
+    msgBox.setWindowTitle(tr("部分写入失败"));
+    msgBox.setIcon(QMessageBox::Warning);
+    msgBox.setText(tr("以下数据块写入失败：\n\n") + suffix + tr("\n\n是否在左侧列表中自动勾选这些失败的块，以便重试？"));
+
+    // 自定义中文按钮
+    QPushButton *yesBtn = msgBox.addButton(tr("勾选失败块 (Yes)"), QMessageBox::AcceptRole);
+    QPushButton *noBtn = msgBox.addButton(tr("保持原样 (No)"), QMessageBox::RejectRole);
+
+    msgBox.setDefaultButton(yesBtn); // 默认选Yes，因为通常失败了都需要重试
+    msgBox.exec();
+
+    if (msgBox.clickedButton() == yesBtn) {
+        // 先把所有选中的取消勾选
+        for (int item : selectedBlocks) {
+            ui->MF_dataWidget->item(item, 1)->setCheckState(Qt::Unchecked);
+        }
+        // 再把失败的块勾上
+        for (int failedBlk : failedBlocks) {
+            ui->MF_dataWidget->item(failedBlk, 1)->setCheckState(Qt::Checked);
+        }
     }
   }
 }
