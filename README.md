@@ -1,8 +1,9 @@
 # Proxmark3GUI
 
-基于wh201906/Proxmark3GUI大佬的项目修改的Pm3的GUI，原项目可在Windows/Linux/macOS系统下运行，当前修改的只在mac apple芯片的mac上验证过，其它系统不知道支持情况。[冰人版](https://github.com/RfidResearchGroup/proxmark3)客户端和固件  
+1. 基于wh201906/Proxmark3GUI大佬的项目修改的Pm3的GUI，因wh201906大佬的项目到23年底就不再跟新，导致不支持RRG的v4.2客户端与固件，无法解 复旦三代无漏洞卡（FM11RF08S）卡，所以对该项目进行了适配，并且根据个人的常用操作与喜好，使用gemini ai调整了页面与功能。
+2. 原项目可在Windows/Linux/macOS系统下运行，但本人使用mac系统，所以当前修改的项目只在apple芯片的mac上验证过，其它系统不知道支持情况。[冰人版](https://github.com/RfidResearchGroup/proxmark3)客户端和固件  
 
-以下内容是原项目的，只更新了修改后的ui图片.
+以下内容都是原项目的，我也不知道写什么，所以只更新了修改后的ui图片.
 ***
 
 ## 功能
