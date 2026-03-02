@@ -78,13 +78,30 @@ MainWindow::MainWindow(QWidget *parent)
   contextMenu->addAction(checkUpdate);
 }
 
+// MainWindow::~MainWindow() {
+//   delete ui;
+//   emit killPM3();
+//   pm3Thread->exit(0);
+//   pm3Thread->wait(5000);
+//   delete pm3;
+//   delete pm3Thread;
+// }
+
 MainWindow::~MainWindow() {
-  delete ui;
-  emit killPM3();
-  pm3Thread->exit(0);
-  pm3Thread->wait(5000);
-  delete pm3;
-  delete pm3Thread;
+    // 1. 先发送停止信号，通知后台处理结束
+    emit killPM3();
+
+    // 2. 安全优雅地退出线程
+    if (pm3Thread && pm3Thread->isRunning()) {
+        pm3Thread->quit(); // 推荐使用 quit() 替代 exit(0)，让事件循环正常结束
+        pm3Thread->wait(5000);
+    }
+
+    // 🚫 删除了 delete pm3; 和 delete pm3Thread;
+    // 因为它们会自动被 Qt 回收，强行 delete 会导致 macOS 报 SIGSEGV 崩溃。
+
+    // 3. 确保后台线程完全停止后，再销毁 UI 组件，防止子线程异步更新访问到空指针
+    delete ui;
 }
 
 void MainWindow::loadConfig() {
@@ -336,6 +353,10 @@ void MainWindow::refreshOutput(const QString &output) {
           if (allText.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
               prefix = tr("检测到 Gen 2 / CUID 魔术卡：\n\n");
           }
+          // === 新增：在弹窗前，自动把 Mifare 操作面板切回前台 ===
+          if (currentVulnLevel > 0 && !dockList.isEmpty()) {
+              dockList[0]->raise();
+          }
 
           if (currentVulnLevel == 4) {
               QMessageBox::information(this, tr("三代卡检测"),
@@ -343,15 +364,15 @@ void MainWindow::refreshOutput(const QString &output) {
           }
           else if (currentVulnLevel == 3) {
               QMessageBox::information(this, tr("破解建议"),
-                                       prefix + tr("【检测到静态随机数 (Static Nonce) 漏洞】\n\n👉 操作建议：\n1. 请先点击上方【(2)扫描默认密码】获取至少一个密钥。\n2. 再点击【知一求全】破解，程序将极速秒解。"));
+                                       prefix + tr("【检测到静态随机数 (Static Nonce) 漏洞】\n\n👉 操作建议：\n1. 请先点击【第二步：扫描默认密码】获取至少一个密钥。\n2. 再点击【知一求全】破解，程序将极速秒解。"));
           }
           else if (currentVulnLevel == 2) {
               QMessageBox::information(this, tr("破解建议"),
-                                       prefix + tr("【检测到弱随机数 (Weak PRNG) 漏洞】\n\n👉 操作建议：\n1. 请先点击上方【(2)扫描默认密码】。\n2. 再点击【知一求全】进行常规破解。"));
+                                       prefix + tr("【检测到弱随机数 (Weak PRNG) 漏洞】\n\n👉 操作建议：\n1. 请先点击【第二步：扫描默认密码】。\n2. 再点击【知一求全】进行常规破解。"));
           }
           else if (currentVulnLevel == 1) {
               QMessageBox::information(this, tr("破解建议"),
-                                       prefix + tr("【检测到强化加密 (Hardened) 卡片】\n\n该卡已修复常规漏洞。\n\n👉 操作建议：\n1. 请先点击上方【(2)扫描默认密码】碰碰运气。\n2. 如果扫描到了至少一个密码，使用【Hardnested攻击】进行深度破解。"));
+                                       prefix + tr("【检测到强化加密 (Hardened) 卡片】\n\n该卡已修复常规漏洞。\n\n👉 操作建议：\n1. 请先点击【第二步：扫描默认密码】碰碰运气。\n2. 如果扫描到了至少一个密码，使用【Hardnested攻击】进行深度破解。"));
           }
 
           currentVulnLevel = 0;
@@ -443,9 +464,13 @@ void MainWindow::refreshOutput(const QString &output) {
           mifare->data_data2Key(); // 提取密码
 
           ui->funcTab->setCurrentIndex(0);
+          // === 新增：由于使用了 Dock，需要 raise() 才能置顶面板 ===
+          if (!dockList.isEmpty()) {
+              dockList[0]->raise();
+          }
           // 将原来的“破解成功”替换为更严谨的“加载成功”
           QMessageBox::information(this, tr("数据加载成功"),
-                                   tr("操作完成！\n已成功读取 Dump 数据文件，卡片数据及密码已自动同步至数据面板。"));
+                                   tr("操作完成！\n已成功读取 Dump 数据文件，卡片数据及密码已同步至数据面板。"));
       }
   }
 }
@@ -965,7 +990,7 @@ void MainWindow::on_MF_RW_readBlockButton_clicked() {
             QMessageBox::information(this, tr("防砖提示"),
                                      tr("您刚刚读取了第 0 块（包含卡号和厂商信息）。\n\n"
                                         "⚠️ 警告：请不要直接在下方的数据框中手动修改！\n"
-                                        "手动修改极易导致 BCC 校验和错误，从而使卡片永久变砖。\n\n"
+                                        "手动修改极易导致 BCC 校验错误，从而使卡片永久变砖。\n\n"
                                         "👉 建议操作：请点击右侧的【修改卡号】按钮，使用专用的修改器来安全改写卡号。"));
         }
     }
@@ -1102,7 +1127,7 @@ void MainWindow::on_MF_RW_restoreButton_clicked() {
     QMessageBox cardStateBox(this);
     cardStateBox.setWindowTitle(tr("第二步：目标卡状态确认"));
     cardStateBox.setText(tr("您要写入的【目标卡】，当前是【全新空白卡】还是【已有密码的加密卡】？\n\n"
-                            "👉 白卡：正常写入 (不加 --ka)。\n"
+                            "👉 空白卡：正常写入 (不加 --ka)。\n"
                             "👉 加密卡：强制使用旧密码验证写入 (增加 --ka)。\n\n"
                             "⚠️ 提示：无论您选择哪种卡，下一步都必须提供与 Dump 配套的 Key 密钥文件！"));
     QPushButton *blankBtn = cardStateBox.addButton(tr("空白卡 (不加 --ka)"), QMessageBox::ActionRole);
@@ -1131,10 +1156,10 @@ void MainWindow::on_MF_RW_restoreButton_clicked() {
     QMessageBox forceBox(this);
     forceBox.setWindowTitle(tr("第四步：附加选项"));
     forceBox.setText(tr("是否启用 --force 强制覆盖？\n\n"
-                        "👉 强制：忽略卡号(UID)不匹配警告，强行覆盖写入。\n"
+                        "👉 强制覆盖：忽略卡号(UID)不匹配警告，强行覆盖写入。\n"
                         "👉 不强制：遇到 UID 不匹配会安全中断，保护卡片。"));
     QPushButton *forceBtn = forceBox.addButton(tr("强制覆盖 (--force)"), QMessageBox::ActionRole);
-    forceBox.addButton(tr("安全写入 (不强制)"), QMessageBox::ActionRole); // <-- 这里去掉了未使用的变量声明
+    forceBox.addButton(tr("不强制(安全写入)"), QMessageBox::ActionRole); // <-- 这里去掉了未使用的变量声明
     forceBox.addButton(QMessageBox::Cancel);
 
     forceBox.exec();
@@ -1195,7 +1220,7 @@ void MainWindow::on_MF_RW_restoreButton_clicked() {
                                  tr("数据已尝试修补并下发指令给 PM3。\n\n"
                                     "⚠️ 重要提示：\n"
                                     "由于 PM3 软件缺陷，再次执行 [Autopwn/破解] 会强制在日志里把 KeyB 显示为 0。\n"
-                                    "请直接使用 [Read Block] 或刷卡测试来验证结果！"));
+                                    "请直接使用 【读取选中块】 或刷卡测试来验证结果！"));
     }
 }
 
@@ -2088,7 +2113,7 @@ void MainWindow::on_MF_RW_generateEmptyDataButton_clicked() {
         QMessageBox::critical(this, tr("危险拦截 (防变砖)"),
                               tr("未检测到真实的卡片数据！\n\n"
                                  "直接写入空的第 0 块会导致魔术卡永久损坏（变砖）。\n"
-                                 "👉 解决办法：请先将卡片放在读卡器上，点击面板上的【Read (读取)】或至少读取【0 扇区】，然后再生成空数据。"));
+                                 "👉 解决办法：请先将卡片放在读卡器上，点击面板上的【读取选中块】或至少读取【0 扇区】，然后再生成空数据。"));
         return; // 强行终止，绝不往下走
     }
 
@@ -2119,7 +2144,7 @@ void MainWindow::on_MF_RW_generateEmptyDataButton_clicked() {
     QMessageBox::information(this, tr("空数据生成完毕"),
                              tr("面板数据已转换为初始白卡状态！\n\n"
                                 "✅ 已自动在您的【用户目录】生成 <b>empty-dump.bin</b>\n"
-                                "👉 您现在可以点击【高级清卡 (Wipe)】按钮进行深度清理。"));
+                                "👉 您现在可以点击【格式化卡(Wipe)】按钮进行深度清理。"));
 }
 
 // ==========================================
