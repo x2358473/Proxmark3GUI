@@ -445,7 +445,7 @@ It could make the whole sector blocked irreversibly!</source>
     </message>
     <message>
         <location filename="../src/ui/mainwindow.ui" line="1073"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1452"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1483"/>
         <source>About UID Card</source>
         <translation type="unfinished"></translation>
     </message>
@@ -858,7 +858,7 @@ or the communication between a tag and a reader.</source>
     </message>
     <message>
         <location filename="../src/ui/mainwindow.ui" line="2508"/>
-        <location filename="../src/ui/mainwindow.cpp" line="638"/>
+        <location filename="../src/ui/mainwindow.cpp" line="669"/>
         <source>History:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1068,16 +1068,16 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <location filename="../src/ui/mainwindow.cpp" line="242"/>
         <location filename="../src/ui/mainwindow.cpp" line="317"/>
         <location filename="../src/ui/mainwindow.cpp" line="323"/>
-        <location filename="../src/ui/mainwindow.cpp" line="731"/>
-        <location filename="../src/ui/mainwindow.cpp" line="907"/>
-        <location filename="../src/ui/mainwindow.cpp" line="924"/>
-        <location filename="../src/ui/mainwindow.cpp" line="934"/>
-        <location filename="../src/ui/mainwindow.cpp" line="954"/>
-        <location filename="../src/ui/mainwindow.cpp" line="967"/>
-        <location filename="../src/ui/mainwindow.cpp" line="996"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1009"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1513"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1557"/>
+        <location filename="../src/ui/mainwindow.cpp" line="762"/>
+        <location filename="../src/ui/mainwindow.cpp" line="938"/>
+        <location filename="../src/ui/mainwindow.cpp" line="955"/>
+        <location filename="../src/ui/mainwindow.cpp" line="965"/>
+        <location filename="../src/ui/mainwindow.cpp" line="985"/>
+        <location filename="../src/ui/mainwindow.cpp" line="998"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1027"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1040"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1544"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1588"/>
         <source>Info</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1113,131 +1113,166 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
     </message>
     <message>
         <location filename="../src/ui/mainwindow.cpp" line="337"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1647"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1678"/>
         <source>Not Connected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="379"/>
-        <source>【读取到复旦三代无漏洞卡 (FM11RF08S)】
-
-该卡免疫传统的 Nested 攻击。
-
-👉 建议步骤：直接点击【解三代卡】运行脚本。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/ui/mainwindow.cpp" line="382"/>
-        <location filename="../src/ui/mainwindow.cpp" line="386"/>
-        <location filename="../src/ui/mainwindow.cpp" line="390"/>
+        <location filename="../src/ui/mainwindow.cpp" line="400"/>
+        <location filename="../src/ui/mainwindow.cpp" line="404"/>
+        <location filename="../src/ui/mainwindow.cpp" line="408"/>
         <source>破解建议</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="732"/>
+        <location filename="../src/ui/mainwindow.cpp" line="409"/>
+        <source>【检测到强化加密 (Hardened / PRNG Hard) 卡片】
+
+该卡已修复常规漏洞，常规的知一求全 (Nested) 攻击无效。
+
+👉 操作建议：
+1. 请先点击【第二步：扫描默认密码】碰碰运气。
+2. 只要能扫出任意一个已知密码，请使用【Hardnested攻击】进行深度破解。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="763"/>
         <source>Some of the data and key will be cleared.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="733"/>
+        <location filename="../src/ui/mainwindow.cpp" line="764"/>
         <source>Continue?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="908"/>
+        <location filename="../src/ui/mainwindow.cpp" line="939"/>
         <source>Data must consists of 32 Hex symbols(Whitespace is allowed)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="925"/>
-        <location filename="../src/ui/mainwindow.cpp" line="935"/>
+        <location filename="../src/ui/mainwindow.cpp" line="956"/>
+        <location filename="../src/ui/mainwindow.cpp" line="966"/>
         <source>Key must consists of 12 Hex symbols(Whitespace is allowed)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="945"/>
+        <location filename="../src/ui/mainwindow.cpp" line="976"/>
         <source>Plz select the data file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="988"/>
-        <location filename="../src/ui/mainwindow.cpp" line="995"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1269"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2428"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1019"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1026"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1300"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2459"/>
         <source>Binary Data Files(*.bin *.dump)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="989"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2429"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1020"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2460"/>
         <source>Text Data Files(*.txt *.eml)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1269"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1298"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1502"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2429"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1300"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1329"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1533"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2460"/>
         <source>All Files(*.*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="955"/>
-        <location filename="../src/ui/mainwindow.cpp" line="968"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1514"/>
+        <location filename="../src/ui/mainwindow.cpp" line="986"/>
+        <location filename="../src/ui/mainwindow.cpp" line="999"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1545"/>
         <source>Failed to open</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="959"/>
+        <location filename="../src/ui/mainwindow.cpp" line="388"/>
+        <source>高级魔术卡检测</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="389"/>
+        <source>【检测到 魔术卡三代 (Gen 3 / APDU CPU卡)】
+
+这是一种可以使用 APDU 指令修改卡号的高级 CPU 模拟卡。
+
+👉 操作建议：如果需要破解扇区数据，请按普通卡流程，先扫默认密码，再尝试【Hardnested攻击】。若要修改 UID，需使用专门的 APDU 写卡命令。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="394"/>
+        <source>复旦三代卡检测</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="395"/>
+        <source>【检测到复旦三代无漏洞卡 (FM11RF08S)】
+
+该卡免疫传统的 Nested 和绝大多数 Hardnested 攻击。
+
+👉 建议步骤：直接点击面板上的【解三代卡】运行自动化恢复脚本。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="990"/>
         <source>Plz select the key file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1004"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1008"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1035"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1039"/>
         <source>Binary Key Files(*.bin *.dump)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="985"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1016"/>
         <source>Plz select the location to save data file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="568"/>
+        <location filename="../src/ui/mainwindow.cpp" line="592"/>
         <source>使用Dump写卡完成</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="569"/>
-        <source>✅ &lt;b&gt;数据写入指令已执行完毕！&lt;/b&gt;&lt;br&gt;&lt;br&gt;👉 &lt;b&gt;建议验证步骤：&lt;/b&gt;&lt;br&gt;1. 保持卡片在读卡器上不要移动，重新执行破解流程。&lt;br&gt;2. 破解成功后面板区会更新当前卡的数据与密码。&lt;br&gt;3. 点击【比较扇区】。选择原卡的Dump文件比较</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/ui/mainwindow.cpp" line="576"/>
+        <location filename="../src/ui/mainwindow.cpp" line="600"/>
         <source>🧹 &lt;b&gt;卡片已成功重置为空白状态！&lt;/b&gt;&lt;br&gt;&lt;br&gt;（程序已为您安全保留了第 0 块的卡号与厂商信息）&lt;br&gt;&lt;br&gt;👉 &lt;b&gt;建议验证步骤：&lt;/b&gt;&lt;br&gt;1. 点击【第二步：扫描默认密码】更新密码区数据。&lt;br&gt;2. 点击面板上的【读取选中块】，确认其他扇区是否已清零。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="997"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1010"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1558"/>
+        <location filename="../src/ui/mainwindow.cpp" line="610"/>
+        <source>🎉 &lt;b&gt;太棒了，Hardnested 攻击成功！&lt;/b&gt;&lt;br&gt;&lt;br&gt;成功爆破出密钥：&lt;br&gt;&lt;span style=&apos;color: #E53935; font-family: Consolas, monospace; font-size: 18px;&apos;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/span&gt;&lt;br&gt;&lt;br&gt;👉 &lt;b&gt;下一步操作：&lt;/b&gt;&lt;br&gt;请用鼠标选中上方红色的密钥进行&lt;b&gt;复制 (Ctrl+C)&lt;/b&gt;，&lt;br&gt;然后点击【知一求全】，将此密钥粘贴为已知密钥并选择加密扇区进行破解！</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="624"/>
+        <source>🔍 &lt;b&gt;知一求全 (Nested) 攻击已执行完毕！&lt;/b&gt;&lt;br&gt;&lt;br&gt;👉 &lt;b&gt;结果查看：&lt;/b&gt;&lt;br&gt;程序会自动提取所有破解成功的密钥并填充到表格中。&lt;br&gt;点击普通卡中的【读取选中块】把扇区数据读取到面板数据区。&lt;br&gt;若仍有遗漏扇区，说明卡片可能有漏洞修补，建议尝试【Hardnested】攻击。</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="1028"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1041"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1589"/>
         <source>Failed to save to</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1001"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1032"/>
         <source>Plz select the location to save key file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1134"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1165"/>
         <source>防砖提示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1233"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1264"/>
         <source>检测到面板加载数据对应的备份文件 (卡号 %1)：
 
 📄 %2
@@ -1245,263 +1280,263 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1236"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1267"/>
         <source>🔑 %1
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1238"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1269"/>
         <source>
 是否将这些文件写入到当前放着的卡片中？</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1241"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1272"/>
         <source>智能发现匹配文件</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1254"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1285"/>
         <source>智能匹配失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1255"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1286"/>
         <source>在工作目录和用户根目录下均未找到卡号包含 [%1] 的 dump 文件。
 请手动选择要写入的数据文件。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1259"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1290"/>
         <source>面板无数据</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1260"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1291"/>
         <source>左侧数据面板为空，或者尚未加载需要写入的扇区数据。
 将进入手动选择文件模式。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1266"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1297"/>
         <source>第一步：请手动选择数据文件 (Dump.bin)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1275"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1306"/>
         <source>第二步：目标卡状态确认</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1280"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1311"/>
         <source>空白卡 (不加 --ka)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1281"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1312"/>
         <source>加密卡 (加 --ka)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1295"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1326"/>
         <source>第三步：请手动选择对应的密钥文件 (Key.bin)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1298"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1329"/>
         <source>Binary Key Files(*.bin *.dump *.key)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1304"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1335"/>
         <source>第四步：附加选项</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1308"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1339"/>
         <source>强制覆盖 (--force)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1403"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1434"/>
         <source>    Normally, the Block 0 of a typical Mifare card, which contains the UID, is locked during the manufacture. Users cannot write anything to Block 0 or set a new UID to a normal Mifare card.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1408"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1439"/>
         <source>    Chinese Magic Cards(aka UID Cards) are some special cards whose Block 0 are writeable. And you can change UID by writing to it.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1412"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1443"/>
         <source>There are two versions of Chinese Magic Cards, the Gen1 and the Gen2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1415"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1446"/>
         <source>    Gen1:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1416"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1447"/>
         <source>    also called UID card in China. It responses to some backdoor commands so you can access any blocks without password. The Proxmark3 has a bunch of related commands(csetblk, cgetblk, ...) to deal with this type of card, and my GUI also support these commands.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1422"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1453"/>
         <source>    Gen2:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1423"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1454"/>
         <source>    doesn&apos;t response to the backdoor commands, which means that a reader cannot detect whether it is a Chinese Magic Card or not by sending backdoor commands.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1428"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1459"/>
         <source>There are some types of Chinese Magic Card Gen2.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1429"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1460"/>
         <source>    CUID Card:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1430"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1461"/>
         <source>    the Block 0 is writeable, you can write to this block repeatedly by normal wrbl command.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1433"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1464"/>
         <source>    (hf mf wrbl 0 A FFFFFFFFFFFF &lt;the data you want to write&gt;)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1435"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1466"/>
         <source>    FUID Card:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1436"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1467"/>
         <source>    you can only write to Block 0 once. After that, it seems like a typical Mifare card(Block 0 cannot be written to).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1439"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1470"/>
         <source>    (some readers might try changing the Block 0, which could detect the CUID Card. In that case, you should use FUID card.)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1442"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1473"/>
         <source>    UFUID Card:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1443"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1474"/>
         <source>    It behaves like a CUID card(or UID card? I&apos;m not sure) before you send some special command to lock it. Once it is locked, you cannot change its Block 0(just like a typical Mifare card).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1448"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1479"/>
         <source>    Seemingly, these Chinese Magic Cards are more easily to be compromised by Nested Attack(it takes little time to get an unknown key).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1498"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1529"/>
         <source>Plz select the trace file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1501"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1539"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1532"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1570"/>
         <source>Trace Files</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1536"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1567"/>
         <source>Plz select the location to save trace file:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1648"/>
-        <location filename="../src/ui/mainwindow.cpp" line="1907"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1679"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1938"/>
         <source>Idle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1650"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1681"/>
         <source>Stop</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1674"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1705"/>
         <source>(None)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1675"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1706"/>
         <source>Dark</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1676"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1707"/>
         <source>Light</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1734"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1765"/>
         <source>External file</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1858"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1889"/>
         <source>HW Version:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1860"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1891"/>
         <source>PM3:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1862"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1893"/>
         <source>State:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1905"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1936"/>
         <source>Running</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2064"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2095"/>
         <source>Actural Freq: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2234"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2265"/>
         <source>一键破解 (Autopwn) 提示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2237"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2268"/>
         <source>即将开始全自动一键破解。&lt;br&gt;&lt;br&gt;⚠️ &lt;b&gt;重要提醒 (防变砖)：&lt;/b&gt;&lt;br&gt;受底层程序的特性限制，一键破解自动导出的 Dump 文件中有时会将隐藏的 &lt;b&gt;KeyB 强行填充为全 0&lt;/b&gt;！&lt;br&gt;&lt;br&gt;👉 如果您破解完毕后准备【克隆写卡】，&lt;b&gt;强烈建议&lt;/b&gt;不要直接使用它自动保存的文件，而是：&lt;br&gt;1. 等待破解结束，密码自动同步到右侧面板。&lt;br&gt;2. 点击下方读取面板的【读取选中块】读出卡片的完整真实数据。&lt;br&gt;3. 点击下方的【导出数据】来保存最终安全的写卡文件！&lt;br&gt;&lt;br&gt;是否确认开始破解？</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2245"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2276"/>
         <source>我已知晓，开始破解</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2246"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2277"/>
         <source>取消 (Cancel)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2269"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2300"/>
         <source>未检测到真实的卡片数据！
 
 直接写入空的第 0 块会导致魔术卡永久损坏（变砖）。
@@ -1509,7 +1544,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2300"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2331"/>
         <source>面板数据已转换为初始白卡状态！
 
 ✅ 已自动在您的【用户目录】生成 &lt;b&gt;empty-dump.bin&lt;/b&gt;
@@ -1517,30 +1552,30 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2425"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2456"/>
         <source>请选择要进行校验的 Dump 文件:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2442"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2450"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2473"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2481"/>
         <source>操作提示</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2443"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2474"/>
         <source>修改卡号 (UID) 必须在 0 块进行！
 👉 请在左侧下拉框中将 Block 设置为 0。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2451"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2482"/>
         <source>当前 0 块数据为空或无效！
 👉 请先将卡片放在读卡器上，点击【读取单个块】读取 0 块数据。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2468"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2499"/>
         <source>当前数据的 BCC 校验和不匹配！
 
 可能原因：
@@ -1551,34 +1586,34 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2481"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2512"/>
         <source>&lt;span style=&apos;color: #666666;&apos;&gt;&lt;b&gt;【第一部分：当前原卡信息】&lt;/b&gt;&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2493"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2524"/>
         <source>&lt;span style=&apos;color: #1976D2;&apos;&gt;&lt;b&gt;【第二部分：设置新卡号】&lt;/b&gt;&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2566"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2597"/>
         <source>数据预览:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2617"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2648"/>
         <source>新数据已填入 Data 框中。
 
 👉 点击下方的【写入单个块】按钮即可写入卡片！</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2474"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2505"/>
         <source>智能卡号 (UID) 修改器</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="383"/>
+        <location filename="../src/ui/mainwindow.cpp" line="401"/>
         <source>【检测到静态随机数 (Static Nonce) 漏洞】
 
 👉 操作建议：
@@ -1587,7 +1622,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="387"/>
+        <location filename="../src/ui/mainwindow.cpp" line="405"/>
         <source>【检测到弱随机数 (Weak PRNG) 漏洞】
 
 👉 操作建议：
@@ -1596,80 +1631,59 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="391"/>
-        <source>【检测到强化加密 (Hardened) 卡片】
-
-该卡已修复常规漏洞。
-
-👉 操作建议：
-1. 请先点击【第二步：扫描默认密码】碰碰运气。
-2. 如果扫描到了至少一个密码，使用【Hardnested攻击】进行深度破解。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/ui/mainwindow.cpp" line="489"/>
+        <location filename="../src/ui/mainwindow.cpp" line="512"/>
         <source>操作完成！
 已成功读取 Dump 数据文件，卡片数据及密码已同步至数据面板。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="575"/>
+        <location filename="../src/ui/mainwindow.cpp" line="599"/>
         <source>高级清卡完成</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="582"/>
+        <location filename="../src/ui/mainwindow.cpp" line="607"/>
         <source>Hardnested 破解成功</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="583"/>
-        <source>🎉 &lt;b&gt;太棒了，Hardnested 攻击成功！&lt;/b&gt;&lt;br&gt;&lt;br&gt;成功爆破出密钥：&lt;span style=&apos;color: #E53935; font-family: Consolas, monospace; font-size: 16px;&apos;&gt;&lt;b&gt;%1&lt;/b&gt;&lt;/span&gt;&lt;br&gt;&lt;br&gt;👉 &lt;b&gt;下一步操作：&lt;/b&gt;&lt;br&gt;您可以利用此密钥，使用【知一求全】极速破解剩余扇区！</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/ui/mainwindow.cpp" line="588"/>
+        <location filename="../src/ui/mainwindow.cpp" line="618"/>
         <source>Hardnested 破解失败</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="589"/>
+        <location filename="../src/ui/mainwindow.cpp" line="619"/>
         <source>❌ &lt;b&gt;很遗憾，Hardnested 攻击未能成功。&lt;/b&gt;&lt;br&gt;&lt;br&gt;请重新检查卡片位置、已知密钥是否正确，或尝试其他攻击方式。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="593"/>
+        <location filename="../src/ui/mainwindow.cpp" line="623"/>
         <source>Nested 破解结束</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="594"/>
-        <source>🔍 &lt;b&gt;知一求全 (Nested) 攻击已执行完毕！&lt;/b&gt;&lt;br&gt;&lt;br&gt;👉 &lt;b&gt;结果查看：&lt;/b&gt;&lt;br&gt;程序会自动提取所有破解成功的密钥并填充到表格中。&lt;br&gt;若仍有遗漏扇区，说明卡片可能有漏洞修补，建议尝试【Hardnested】攻击。</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/ui/mainwindow.cpp" line="949"/>
+        <location filename="../src/ui/mainwindow.cpp" line="980"/>
         <source>Binary Data Files (*.bin *.dump)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="950"/>
+        <location filename="../src/ui/mainwindow.cpp" line="981"/>
         <source>Text Data Files (*.txt *.eml)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="950"/>
-        <location filename="../src/ui/mainwindow.cpp" line="963"/>
+        <location filename="../src/ui/mainwindow.cpp" line="981"/>
+        <location filename="../src/ui/mainwindow.cpp" line="994"/>
         <source>All Files (*.*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="963"/>
+        <location filename="../src/ui/mainwindow.cpp" line="994"/>
         <source>Binary Key Files (*.bin *.dump *.key)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1135"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1166"/>
         <source>您刚刚读取了第 0 块（包含卡号和厂商信息）。
 
 ⚠️ 警告：请不要直接在下方的数据框中手动修改！
@@ -1679,7 +1693,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1276"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1307"/>
         <source>您要写入的【目标卡】，当前是【全新空白卡】还是【已有密码的加密卡】？
 
 👉 空白卡：正常写入 (不加 --ka)。
@@ -1689,7 +1703,7 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1305"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1336"/>
         <source>是否启用 --force 强制覆盖？
 
 👉 强制覆盖：忽略卡号(UID)不匹配警告，强行覆盖写入。
@@ -1697,74 +1711,74 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="1309"/>
+        <location filename="../src/ui/mainwindow.cpp" line="1340"/>
         <source>不强制(安全写入)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2488"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2519"/>
         <source>原卡 UID:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2495"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2526"/>
         <source>输入 8 位 16 进制字符，程序将自动计算 BCC 校验码。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2514"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2545"/>
         <source>新 UID:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2609"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2640"/>
         <source>UID 长度必须正好是 8 个字符！</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2616"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2647"/>
         <source>准备就绪</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2411"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2415"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2433"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2609"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2442"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2446"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2464"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2640"/>
         <source>错误</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="370"/>
+        <location filename="../src/ui/mainwindow.cpp" line="378"/>
         <source>检测到 Gen 2 / CUID 魔术卡：
 
 </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="378"/>
-        <source>三代卡检测</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../src/ui/mainwindow.cpp" line="488"/>
+        <location filename="../src/ui/mainwindow.cpp" line="511"/>
         <source>数据加载成功</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2268"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2312"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2467"/>
-        <source>危险拦截 (防变砖)</source>
+        <location filename="../src/ui/mainwindow.cpp" line="593"/>
+        <source>✅ &lt;b&gt;数据写入指令已执行完毕！&lt;/b&gt;&lt;br&gt;&lt;br&gt;👉 &lt;b&gt;建议验证步骤：&lt;/b&gt;&lt;br&gt;1. 保持卡片在读卡器上不要移动，重新执行破解流程。&lt;br&gt;2. 破解成功后面板区会更新当前卡的数据与密码。&lt;br&gt;3. 点击【数据比较】。选择原卡的Dump文件比较</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../src/ui/mainwindow.cpp" line="2299"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2343"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2498"/>
+        <source>危险拦截 (防变砖)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../src/ui/mainwindow.cpp" line="2330"/>
         <source>空数据生成完毕</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2313"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2344"/>
         <source>当前缺少真实的第 0 块（卡号与厂商信息）！
 
 强制清卡前必须知道原卡的真实卡号，否则恢复数据会导致卡片报废。
@@ -1772,69 +1786,69 @@ The &quot;&lt;client dir&gt;&quot; will be replaced by the directory of the &quo
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2346"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2377"/>
         <source>高级清卡参数设置</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2350"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2381"/>
         <source>&lt;span style=&apos;color: #E53935; font-size: 14px;&apos;&gt;&lt;b&gt;【 ⚠️ 警告：此操作将使用原卡密码覆盖整卡数据】&lt;/b&gt;&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2351"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2382"/>
         <source>将执行指令: restore -f empty-dump.bin -k [原卡密钥] --ka
 此操作将把加密卡彻底重置为空白卡状态（已自动安全保留第0块）。</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2356"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2387"/>
         <source>&lt;span style=&apos;color: #1976D2;&apos;&gt;&lt;b&gt;【 📄 1. 空白数据文件 (Dump)】&lt;/b&gt;&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2361"/>
-        <location filename="../src/ui/mainwindow.cpp" line="2389"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2392"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2420"/>
         <source>浏览</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2364"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2395"/>
         <source>Dump 文件:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2367"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2398"/>
         <source>选择空数据文件</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2373"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2404"/>
         <source>&lt;span style=&apos;color: #43A047;&apos;&gt;&lt;b&gt;【 🔑 2. 原卡密钥文件 (Key)】&lt;/b&gt;&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2392"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2423"/>
         <source>Key 文件:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2395"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2426"/>
         <source>选择原卡密钥</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2411"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2442"/>
         <source>请提供完整的 Dump 文件和 Key 文件路径！</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2415"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2446"/>
         <source>文件不存在，请检查路径是否正确！</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/ui/mainwindow.cpp" line="2433"/>
+        <location filename="../src/ui/mainwindow.cpp" line="2464"/>
         <source>无法打开文件:
 </source>
         <translation type="unfinished"></translation>

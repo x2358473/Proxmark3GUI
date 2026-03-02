@@ -153,20 +153,27 @@ void MainWindow::initUI() // will be called by main.app
 // ******************** basic functions ********************
 
 void MainWindow::on_portSearchTimer_timeout() {
-    QStringList newPortList;     // for actural port name
-    QStringList newPortNameList; // for display name
+    QStringList newPortList;     // for actural port name (实际传给命令行的路径)
+    QStringList newPortNameList; // for display name (界面下拉框显示的名字)
     const QString hint = " *";
 
     foreach (const QSerialPortInfo &info, QSerialPortInfo::availablePorts()) {
-        //        qDebug() << info.isNull() << info.portName() << info.description()
-        //        << info.serialNumber() << info.manufacturer();
         if (!info.isNull()) {
-            QString idString =
-                (info.description() + info.serialNumber() + info.manufacturer())
-                    .toLower();
+            QString idString = (info.description() + info.serialNumber() + info.manufacturer()).toLower();
             QString portName = info.portName();
 
-            newPortList << portName;
+            // === ✨ 修复 Mac 下端口路径不完整的问题 ===
+            QString actualPort = portName;
+#ifdef Q_OS_MAC
+            // 如果是 macOS 且没有 /dev/ 前缀，自动补全 (防止重复添加)
+            if (!actualPort.startsWith("/dev/")) {
+                actualPort = "/dev/" + actualPort;
+            }
+#endif
+            // 真实通信用的路径压入 newPortList (绝不包含星号)
+            newPortList << actualPort;
+
+            // === 下面是界面显示逻辑 (带星号只是为了提示用户这是 PM3) ===
             if (info.hasVendorIdentifier() && info.hasProductIdentifier()) {
                 quint16 vid = info.vendorIdentifier();
                 quint16 pid = info.productIdentifier();
@@ -176,16 +183,20 @@ void MainWindow::on_portSearchTimer_timeout() {
                     portName += hint;
             } else if (idString.contains("proxmark") || idString.contains("iceman"))
                 portName += hint;
+
+            // 界面显示用的名字压入 newPortNameList (带星号)
             newPortNameList << portName;
         }
     }
-    if (newPortList !=
-        portList) // update PM3_portBox when available ports changed
+
+    // 更新下拉框的逻辑 (保持不变)
+    if (newPortList != portList)
     {
         portList = newPortList;
         ui->PM3_portBox->clear();
         int selectId = -1;
         for (int i = 0; i < portList.size(); i++) {
+            // addItem 的第一个参数是显示名(带星号)，第二个参数是实际数据(带 /dev/ 且无星号)
             ui->PM3_portBox->addItem(newPortNameList[i], newPortList[i]);
             if (selectId == -1 && newPortNameList[i].endsWith(hint))
                 selectId = i;
@@ -353,11 +364,9 @@ void MainWindow::refreshOutput(const QString &output) {
     // 智能破解建议逻辑区 (防连弹延迟触发版)
     // ==========================================
 
-    // 使用静态变量保持状态跨函数调用的存活
     static QTimer* suggestTimer = nullptr;
-    static int currentVulnLevel = 0; // 威胁等级: 0:无, 1:强化卡, 2:弱随机数, 3:静态随机数, 4:三代卡
+    static int currentVulnLevel = 0; // 等级: 0:无, 1:强化卡, 2:弱随机数, 3:静态随机数, 4:复旦三代(FM11RF08S), 5:魔术卡三代(APDU)
 
-    // 初始化一个只触发一次的定时器
     if (!suggestTimer) {
         suggestTimer = new QTimer(this);
         suggestTimer->setSingleShot(true);
@@ -366,17 +375,37 @@ void MainWindow::refreshOutput(const QString &output) {
         connect(suggestTimer, &QTimer::timeout, this, [this]() {
             QString allText = ui->Raw_outputEdit->toPlainText();
             QString prefix = "";
-            if (allText.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
+
+            // ✨ 核心修复：只检查最后一次命令的输出，防止历史记录污染
+            QString lastCommandBlock = allText;
+            int lastPromptIdx = allText.lastIndexOf("pm3 -->");
+            if (lastPromptIdx != -1) {
+                // 截取从最后一次敲命令到现在的文本
+                lastCommandBlock = allText.mid(lastPromptIdx);
+            }
+
+            // 使用截取后的最新输出块来判断是否为魔术卡
+            if (lastCommandBlock.contains("Gen 2 / CUID", Qt::CaseInsensitive)) {
                 prefix = tr("检测到 Gen 2 / CUID 魔术卡：\n\n");
             }
-            // === 新增：在弹窗前，自动把 Mifare 操作面板切回前台 ===
+
+            // 在弹窗前，自动把 Mifare 操作面板切回前台
             if (currentVulnLevel > 0 && !dockList.isEmpty()) {
                 dockList[0]->raise();
             }
 
-            if (currentVulnLevel == 4) {
-                QMessageBox::information(this, tr("三代卡检测"),
-                                         prefix + tr("【读取到复旦三代无漏洞卡 (FM11RF08S)】\n\n该卡免疫传统的 Nested 攻击。\n\n👉 建议步骤：直接点击【解三代卡】运行脚本。"));
+            // ✨ 严格区分弹窗提示
+            if (currentVulnLevel == 5) {
+                QMessageBox::information(this, tr("高级魔术卡检测"),
+                                         tr("【检测到 魔术卡三代 (Gen 3 / APDU CPU卡)】\n\n"
+                                            "这是一种可以使用 APDU 指令修改卡号的高级 CPU 模拟卡。\n\n"
+                                            "👉 操作建议：如果需要破解扇区数据，请按普通卡流程，先扫默认密码，再尝试【Hardnested攻击】。若要修改 UID，需使用专门的 APDU 写卡命令。"));
+            }
+            else if (currentVulnLevel == 4) {
+                QMessageBox::information(this, tr("复旦三代卡检测"),
+                                         prefix + tr("【检测到复旦三代无漏洞卡 (FM11RF08S)】\n\n"
+                                                     "该卡免疫传统的 Nested 和绝大多数 Hardnested 攻击。\n\n"
+                                                     "👉 建议步骤：直接点击面板上的【解三代卡】运行自动化恢复脚本。"));
             }
             else if (currentVulnLevel == 3) {
                 QMessageBox::information(this, tr("破解建议"),
@@ -388,36 +417,41 @@ void MainWindow::refreshOutput(const QString &output) {
             }
             else if (currentVulnLevel == 1) {
                 QMessageBox::information(this, tr("破解建议"),
-                                         prefix + tr("【检测到强化加密 (Hardened) 卡片】\n\n该卡已修复常规漏洞。\n\n👉 操作建议：\n1. 请先点击【第二步：扫描默认密码】碰碰运气。\n2. 如果扫描到了至少一个密码，使用【Hardnested攻击】进行深度破解。"));
+                                         prefix + tr("【检测到强化加密 (Hardened / PRNG Hard) 卡片】\n\n该卡已修复常规漏洞，常规的攻击无效。\n\n👉 操作建议：\n1. 请先点击【第二步：扫描默认密码】。\n2. 只要能扫出任意一个已知密码，使用【Hardnested攻击】进行嵌套攻击。"));
             }
 
             currentVulnLevel = 0;
         });
     }
 
-    // 实时解析每一行，但只提升威胁等级，绝不立刻弹窗
     bool needStartTimer = false;
 
-    if (output.contains("Hint: Try `script run fm11rf08s_recovery.py", Qt::CaseInsensitive)) {
-        if (currentVulnLevel < 4) currentVulnLevel = 4;
+    // ✨ 修复：精确匹配终端输出特征词，严防误判
+    if (output.contains("Magic capabilities... Gen 3", Qt::CaseInsensitive)) {
+        if (currentVulnLevel < 5) currentVulnLevel = 5; // 魔术卡三代 (APDU卡)
+        needStartTimer = true;
+    }
+    else if (output.contains("Hint: Try `script run fm11rf08s_recovery.py", Qt::CaseInsensitive)) {
+        if (currentVulnLevel < 4) currentVulnLevel = 4; // 真正的复旦三代 (FM11RF08S)
         needStartTimer = true;
     }
     else if (output.contains("[+] Static nonce... yes", Qt::CaseInsensitive) ||
              output.contains("[+] Static enc nonce... yes", Qt::CaseInsensitive)) {
-        if (currentVulnLevel < 3) currentVulnLevel = 3;
+        if (currentVulnLevel < 3) currentVulnLevel = 3; // 静态随机数
         needStartTimer = true;
     }
     else if (output.contains("[+] Prng....... weak", Qt::CaseInsensitive)) {
-        if (currentVulnLevel < 2) currentVulnLevel = 2;
+        if (currentVulnLevel < 2) currentVulnLevel = 2; // 弱随机数
         needStartTimer = true;
     }
-    else if (output.contains("Hardened MIFARE Classic", Qt::CaseInsensitive)) {
-        if (currentVulnLevel < 1) currentVulnLevel = 1;
+    else if (output.contains("Hardened MIFARE Classic", Qt::CaseInsensitive) ||
+             output.contains("[+] Prng....... hard", Qt::CaseInsensitive)) {
+        if (currentVulnLevel < 1) currentVulnLevel = 1; // 强化加密 (普通 M1 补丁卡)
         needStartTimer = true;
     }
 
     if (needStartTimer) {
-        suggestTimer->start(); // 如果计时器正在跑，再次调用 start() 会重置倒计时 (防抖的核心)
+        suggestTimer->start();
     }
 
 
@@ -498,7 +532,8 @@ void MainWindow::refreshOutput(const QString &output) {
     static bool isPopupQueued = false; // 全局防连弹锁
 
     // 1. 监听 Hardnested 成功/失败特征词 (保持不变)
-    QRegularExpression keyRegexHN("found valid key:?\\s*([0-9a-fA-F]{12})", QRegularExpression::CaseInsensitiveOption);
+    // ✨ 修复：兼容旧版 found valid key 和新版 Key found: 格式
+    QRegularExpression keyRegexHN("(?:found valid key|Key found):?\\s*([0-9a-fA-F]{12})", QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatch keyMatchHN = keyRegexHN.match(output);
 
     if (keyMatchHN.hasMatch()) {
@@ -570,7 +605,7 @@ void MainWindow::refreshOutput(const QString &output) {
                                              "👉 <b>建议验证步骤：</b><br>"
                                              "1. 保持卡片在读卡器上不要移动，重新执行破解流程。<br>"
                                              "2. 破解成功后面板区会更新当前卡的数据与密码。<br>"
-                                             "3. 点击【比较扇区】。选择原卡的Dump文件比较"));
+                                             "3. 点击【数据比较】。选择原卡的Dump文件比较"));
             } else if (currentType == 4) {
                 QMessageBox::information(this, tr("高级清卡完成"),
                                          tr("🧹 <b>卡片已成功重置为空白状态！</b><br><br>"
@@ -579,11 +614,17 @@ void MainWindow::refreshOutput(const QString &output) {
                                             "1. 点击【第二步：扫描默认密码】更新密码区数据。<br>"
                                             "2. 点击面板上的【读取选中块】，确认其他扇区是否已清零。"));
             } else if (currentType == 2) {
-                QMessageBox::information(this, tr("Hardnested 破解成功"),
-                                         tr("🎉 <b>太棒了，Hardnested 攻击成功！</b><br><br>"
-                                            "成功爆破出密钥：<span style='color: #E53935; font-family: Consolas, monospace; font-size: 16px;'><b>%1</b></span><br><br>"
-                                            "👉 <b>下一步操作：</b><br>"
-                                            "您可以利用此密钥，使用【知一求全】极速破解剩余扇区！").arg(currentKey));
+                QMessageBox msgBox(this);
+                msgBox.setWindowTitle(tr("Hardnested 破解成功"));
+                msgBox.setIcon(QMessageBox::Information);
+                msgBox.setTextInteractionFlags(Qt::TextBrowserInteraction); // 允许选择复制
+                msgBox.setText(tr("🎉 <b>太棒了，Hardnested 攻击成功！</b><br><br>"
+                                  "成功嵌套攻击出密钥：<br>"
+                                  "<span style='color: #E53935; font-family: Consolas, monospace; font-size: 18px;'><b>%1</b></span><br><br>"
+                                  "👉 <b>下一步操作：</b><br>"
+                                  "请用鼠标选中上方红色的密钥进行<b>复制 (Ctrl+C)</b>，<br>"
+                                  "然后点击【知一求全】，将此密钥粘贴为已知密钥并选择加密扇区进行破解！").arg(currentKey));
+                msgBox.exec();
             } else if (currentType == 3) {
                 QMessageBox::warning(this, tr("Hardnested 破解失败"),
                                      tr("❌ <b>很遗憾，Hardnested 攻击未能成功。</b><br><br>"
@@ -594,6 +635,7 @@ void MainWindow::refreshOutput(const QString &output) {
                                          tr("🔍 <b>知一求全 (Nested) 攻击已执行完毕！</b><br><br>"
                                             "👉 <b>结果查看：</b><br>"
                                             "程序会自动提取所有破解成功的密钥并填充到表格中。<br>"
+                                            "点击普通卡中的【读取选中块】把扇区数据读取到面板数据区。<br>"
                                             "若仍有遗漏扇区，说明卡片可能有漏洞修补，建议尝试【Hardnested】攻击。"));
             }
         });
@@ -1109,8 +1151,8 @@ void MainWindow::on_MF_Attack_hardnestedButton_clicked() {
     mifare->hardnested();
 
     // --- 新增：切回主页面 ---
-    ui->funcTab->setCurrentIndex(0);
-    if (!dockList.isEmpty()) dockList[0]->raise();
+    // ui->funcTab->setCurrentIndex(0);
+    // if (!dockList.isEmpty()) dockList[0]->raise();
 
     setState(true); // 新增：解锁界面
 }
