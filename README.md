@@ -11,5 +11,5 @@
 <img width="720" height="565" alt="image" src="https://github.com/user-attachments/assets/bf2ac742-6374-45ca-a754-8e3422de8f66" />
 
 ***
-具体的编译与使用请查看原项目[wh201906大佬原项目](https://github.com/wh201906/Proxmark3GUI)Proxmark3GUI，本人小白一枚。
+具体的编译与使用请查看[wh201906大佬原项目Proxmark3GUI](https://github.com/wh201906/Proxmark3GUI)，本人小白一枚。
 ***
