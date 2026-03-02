@@ -1,6 +1,4 @@
 # Proxmark3GUI
-[![downloads](https://img.shields.io/github/downloads/wh201906/Proxmark3GUI/total?label=GitHub%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://github.com/wh201906/Proxmark3GUI/releases)  
-[![downloads](https://img.shields.io/sourceforge/dt/proxmark3gui.svg?label=SourceForge%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://sourceforge.net/projects/proxmark3gui/)  
 
 基于wh201906/Proxmark3GUI大佬的项目修改的Pm3的GUI，原项目可在Windows/Linux/macOS系统下运行，当前修改的只在mac apple芯片的mac上验证过，其它系统不知道支持情况。[冰人版](https://github.com/RfidResearchGroup/proxmark3)客户端和固件  
 
