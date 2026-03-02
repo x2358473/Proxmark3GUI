@@ -134,6 +134,7 @@ QMap<QString, QString> Mifare::info(bool isRequiringOutput) {
 }
 
 void Mifare::chk() {
+  Util::gotoRawTab(); // <--- 新增：一开始就跳到控制台看进度
   QRegularExpressionMatch reMatch;
   QString result;
   int offset = 0;
@@ -292,6 +293,8 @@ void Mifare::nested(bool isStaticNested) {
     cmd.replace("<block>", QString::number(finalBlock));
     cmd.replace("<key type>", config["key type"].toMap()[finalType].toString());
     cmd.replace("<key>", finalKey);
+
+    Util::gotoRawTab(); // <--- 新增：在开始发命令前切到控制台
 
     QString result = util->execCMDWithOutput(
         cmd,
@@ -933,7 +936,7 @@ void Mifare::writeSelected(TargetType targetType) {
                                "3. 确认数据面板不再是空或 '?' 时，才能执行写入操作。</html>").arg(emptyOrInvalidCount));
       return;
   }
-
+    Util::gotoRawTab(); // <--- 新增：拦截器通过后，立刻切到控制台
   // =======================================================
   for (int item : selectedBlocks) {
     bool result = false;
@@ -1085,6 +1088,8 @@ void Mifare::restore(const QString &dumpFilename, const QString &keyFilename, bo
     }
 
     cmd = cmd.simplified();
+
+    // 异步发送命令，并切到控制台
     util->execCMD(cmd);
     Util::gotoRawTab();
 }

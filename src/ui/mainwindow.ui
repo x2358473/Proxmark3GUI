@@ -149,7 +149,7 @@
        </sizepolicy>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="mifareTab">
        <attribute name="title">
@@ -743,7 +743,7 @@
                 </size>
                </property>
                <property name="title">
-                <string>block</string>
+                <string>Block Operation</string>
                </property>
                <property name="checkable">
                 <bool>true</bool>
