@@ -29,9 +29,11 @@ A cross-platform GUI for [Proxmark3](https://github.com/Proxmark/proxmark3)/[Pro
 ***
 
 ## Preview
-![preview](doc/README/preview.png)  
+<img width="2308" height="1812" alt="image" src="https://github.com/user-attachments/assets/d564eeba-d762-4fa7-b2a5-744a89c8c832" />
+<img width="2308" height="1812" alt="image" src="https://github.com/user-attachments/assets/83548587-060a-4a0a-a45e-085fd1b72cbb" />
+<img width="2308" height="1812" alt="image" src="https://github.com/user-attachments/assets/046b3566-b200-4054-8061-b1b82694f24e" />
+<img width="2308" height="1812" alt="image" src="https://github.com/user-attachments/assets/d0027394-9feb-438c-8638-7cefa06bd2bf" />
 
-[more previews](doc/preview/previews.md)  
 
 ***
 
