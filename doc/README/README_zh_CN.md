@@ -2,12 +2,9 @@
 [![downloads](https://img.shields.io/github/downloads/wh201906/Proxmark3GUI/total?label=GitHub%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://github.com/wh201906/Proxmark3GUI/releases)  
 [![downloads](https://img.shields.io/sourceforge/dt/proxmark3gui.svg?label=SourceForge%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://sourceforge.net/projects/proxmark3gui/)  
 
-一个自制的[Proxmark3](https://github.com/Proxmark/proxmark3) GUI，可在Windows/Linux/macOS系统下运行，支持[官方版](https://github.com/Proxmark/proxmark3)/[冰人版](https://github.com/RfidResearchGroup/proxmark3)客户端和固件  
+基于wh201906/Proxmark3GUI大佬的项目修改的Pm3的GUI，原项目可在Windows/Linux/macOS系统下运行，当前修改的只在mac apple芯片的mac上验证过，其它系统不知道支持情况。[冰人版](https://github.com/RfidResearchGroup/proxmark3)客户端和固件  
 
-(目前[官方版](https://github.com/Proxmark/proxmark3)已停更超过一年，推荐使用[冰人版](https://github.com/RfidResearchGroup/proxmark3)固件和客户端)
-
-[English](../../README.md)
-
+以下内容是原项目的，只更新了修改后的ui图片.
 ***
 
 ## 功能
@@ -29,9 +26,11 @@
 ***
 
 ## 预览图
-![preview](preview_zh_CN.png)  
-
-[更多预览](../preview/previews.md)  
+<img width="720" height="565" alt="image" src="https://github.com/user-attachments/assets/252c38e7-9551-4fd6-84a0-8d1652b5d6e4" />
+<img width="720" height="565" alt="image" src="https://github.com/user-attachments/assets/15fdb75c-70d8-4d43-ae16-6701663ad735" />
+<img width="720" height="565" alt="image" src="https://github.com/user-attachments/assets/0fbaeadd-01e2-4fdb-8841-24f738fdc06b" />
+<img width="720" height="565" alt="image" src="https://github.com/user-attachments/assets/1cfde9e8-16f0-400a-b9ba-9bde8bf92624" />
+<img width="720" height="565" alt="image" src="https://github.com/user-attachments/assets/bf2ac742-6374-45ca-a754-8e3422de8f66" />
 
 ***
 
