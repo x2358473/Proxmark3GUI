@@ -232,6 +232,8 @@ private slots:
 
   void on_MF_RW_modifyCardCodeButton_clicked();
 
+  void on_MF_File_clearAllButton_clicked();
+
   private:
   Ui::MainWindow *ui;
   QButtonGroup *MFCardTypeBtnGroup;
