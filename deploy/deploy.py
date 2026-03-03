@@ -78,11 +78,8 @@ compressDirList.append(dst64Dir)
 
 # TODO: GUI+client
 clientList = [
-    "official-v3.1.0",
-    "rrg_other-v4.13441",
-    "rrg_other-v4.14434",
-    "rrg_other-v4.14831",
     "rrg_other-v4.15864",
+    "rrg_other-v4.20728"
 ]
 
 configList = []
