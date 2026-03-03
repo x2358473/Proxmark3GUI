@@ -184,7 +184,7 @@ void Mifare::nested(bool isStaticNested) {
             QMessageBox::warning(parent, tr("前置条件不足 (缺少已知密钥)"),
                                  tr("未检测到任何已知密钥！\n\n"
                                     "执行 Nested (知一求全) 攻击必须至少已知一个扇区的密码作为跳板。\n\n"
-                                    "👉 请先点击上方的【(2)扫描默认密码】获取初始密钥。"));
+                                    "👉 请先点击上方的【第二步：扫描默认密码】获取初始密钥。"));
             return; // 强行拦截
         }
     }
@@ -335,7 +335,7 @@ void Mifare::hardnested() {
         QMessageBox::warning(parent, tr("前置条件不足 (缺少已知密钥)"),
                              tr("未检测到任何已知密钥！\n\n"
                                 "执行 Hardnested 攻击必须至少已知一个扇区的密码作为跳板。\n\n"
-                                "👉 请先点击上方的【(2)扫描默认密码】获取初始密钥。"));
+                                "👉 请先点击上方的【第二步：扫描默认密码】获取初始密钥。"));
         return; // 强行拦截
     }
     // ==========================================
@@ -464,7 +464,7 @@ void Mifare::darkside() {
     msgBox.setTextFormat(Qt::RichText); // 👈 强制开启富文本
     msgBox.setText(tr("您即将执行 Darkside 攻击。<br><br>" // 👈 换成 <br>
                       "<b>适用场景：</b><br>"
-                      "全扇区全加密，且【(2)扫描默认密码】找不到任何密码的老旧 Mifare 卡。<br><br>"
+                      "全扇区全加密，且【第二步：扫描默认密码】找不到任何密码的老旧 Mifare 卡。<br><br>"
                       "⚠️ <b>重要注意事项：</b><br>"
                       "1. 攻击耗时极不稳定，可能需要几分钟到几十分钟。<br>"
                       "2. 如果您的卡片是修复了漏洞的新卡，程序会一直卡死且没有进度。<br>"
@@ -911,30 +911,51 @@ void Mifare::writeSelected(TargetType targetType) {
       selectedBlocks.append(i);
   }
   // ==========================================
-  // ✨ 新增：强力数据有效性拦截 (防变砖、防报错)
+  // ✨ 修改：柔性数据有效性拦截 (给用户自主选择权)
   // ==========================================
   int emptyOrInvalidCount = 0;
+  QList<int> validBlocks; // 暂存有效块
+
   for (int item : selectedBlocks) {
-      // 获取当前块的数据 (先复制，再去除空格和转大写，解决编译报错)
       QString blockData = dataList->at(item);
       blockData.remove(" ");
       blockData = blockData.toUpper();
 
-      // 检查：如果为空、长度不够 32 位、或者是全 ? 无法识别的数据
       if (blockData.isEmpty() || blockData.length() != 32 || blockData.contains("?")) {
           emptyOrInvalidCount++;
+      } else {
+          validBlocks.append(item);
       }
   }
 
   if (emptyOrInvalidCount > 0) {
-      QMessageBox::critical(parent, tr("危险拦截 (写入失败)"),
-                            tr("<html>检测到您勾选的块中有 <b>%1</b> 个块的数据为空或包含无效字符('?')！<br><br>"
-                               "盲目写入空数据会直接导致卡片扇区损坏 (永久变砖)。<br><br>"
-                               "👉 <b>正确操作步骤：</b><br>"
-                               "1. 先点击【检查默认密码】或【一键破解】获取密码。<br>"
-                               "2. 再点击【读取选中块】将真实的卡片数据读出到面板上。<br>"
-                               "3. 确认数据面板不再是空或 '?' 时，才能执行写入操作。</html>").arg(emptyOrInvalidCount));
-      return;
+      QMessageBox msgBox(parent);
+      msgBox.setWindowTitle(tr("空数据/无效数据警告"));
+      msgBox.setIcon(QMessageBox::Warning);
+      msgBox.setText(tr("<html>检测到您勾选的待写块中，有 <b>%1</b> 个块的数据为空或包含无效字符('?')。<br><br>"
+                        "盲目写入空数据极可能导致卡片对应扇区变砖损坏。<br><br>"
+                        "👉 <b>推荐操作：</b>跳过这些空块，仅写入正常的块。<br>"
+                        "👉 <b>高风险操作：</b>强行将空数据发送给读卡器。</html>").arg(emptyOrInvalidCount));
+
+      // 提供三个按钮选项
+      QPushButton *skipBtn = msgBox.addButton(tr("跳过空块并继续 (推荐)"), QMessageBox::AcceptRole);
+      QPushButton *forceBtn = msgBox.addButton(tr("强行全部写入"), QMessageBox::DestructiveRole);
+      QPushButton *cancelBtn = msgBox.addButton(tr("取消写入"), QMessageBox::RejectRole);
+
+      msgBox.setDefaultButton(skipBtn); // 默认推荐安全做法防误触
+
+      msgBox.exec();
+
+      if (msgBox.clickedButton() == cancelBtn) {
+          return; // 用户点击取消，结束
+      } else if (msgBox.clickedButton() == skipBtn) {
+          selectedBlocks = validBlocks; // 核心：替换为只包含有效块的列表
+          if (selectedBlocks.isEmpty()) {
+              QMessageBox::information(parent, tr("提示"), tr("跳过空数据后，没有剩余有效的块可供写入，操作已取消。"));
+              return;
+          }
+      }
+      // 如果点的是 forceBtn (强行写入)，则原样保留 selectedBlocks，继续往下执行
   }
     Util::gotoRawTab(); // <--- 新增：拦截器通过后，立刻切到控制台
   // =======================================================
@@ -1121,13 +1142,30 @@ void Mifare::setParameterC() {
 }
 
 void Mifare::lockC() {
-  QVariantMap config = configMap["Magic Card lock"].toMap();
-  QString cmd = config["cmd"].toString();
-  QVariantList list = config["sequence"].toJsonArray().toVariantList();
-  for (auto item = list.begin(); item != list.end(); item++) {
-    qDebug() << cmd + item->toString();
-    util->execCMD(cmd + item->toString());
-  }
+    // 增加一个高危操作的二次确认弹窗
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::warning(parent, tr("锁卡警告 (不可逆操作)"),
+                                 tr("您即将锁定这张 UFUID 卡片！\n\n"
+                                    "!!!警告：锁定后，该卡的第 0 块 (UID) 将永久变为只读，"
+                                    "卡片将变成普通的 M1卡，此过程不可逆转！\n\n"
+                                    "确认要执行锁定操作吗？"),
+                                 QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::No) {
+        return; // 用户取消，拦截操作
+    }
+
+    QVariantMap config = configMap["Magic Card lock"].toMap();
+    QString cmd = config["cmd"].toString();
+    QVariantList list = config["sequence"].toJsonArray().toVariantList();
+
+    for (auto item = list.begin(); item != list.end(); item++) {
+        qDebug() << cmd + item->toString();
+        util->execCMD(cmd + item->toString());
+    }
+
+    // 执行完毕后，自动跳转到控制台页面，让用户看底层的执行结果
+    Util::gotoRawTab();
 }
 
 void Mifare::wipeE() {

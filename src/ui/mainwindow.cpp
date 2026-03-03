@@ -1066,63 +1066,37 @@ void MainWindow::on_MF_File_clearButton_clicked() {
     }
 }
 
-void MainWindow::on_MF_Attack_infoButton_clicked() { mifare->info(); }
+// void MainWindow::on_MF_Attack_infoButton_clicked() { mifare->info(); }
+void MainWindow::on_MF_Attack_infoButton_clicked() {
+    setState(false); // 禁用界面，防止乱点
 
-// 有bug
-// void MainWindow::on_MF_Attack_infoButton_clicked() {
-//     setState(false); // 禁用界面，防止乱点
+    // 发送完整的 hf mf info 命令，并等待最长 3000 毫秒
+    QString result = util->execCMDWithOutput(
+        "hf mf info",
+        Util::ReturnTrigger(3000, {"Prng", "Hardened", "Can't found", "No valid", "fm11rf08s", "No known", "pm3 -->"})
+        );
 
-//     // 强制发送完整的 hf mf info 命令，并等待最长 3000 毫秒（因为漏洞检测耗时较长）
-//     QString result = util->execCMDWithOutput(
-//         "hf mf info",
-//         Util::ReturnTrigger(6000, {"Prng", "Hardened", "Can't found", "No valid", "fm11rf08s"})
-//         );
+    setState(true);  // 恢复界面
 
-//     setState(true);  // 恢复界面
+    // 检查是否失败或者没读到 UID (没放卡、卡位置不对等情况)
+    if (result.isEmpty() || result.contains("Can't found", Qt::CaseInsensitive) ||
+        result.contains("No valid", Qt::CaseInsensitive) || result.contains("No known", Qt::CaseInsensitive) ||
+        !result.contains("UID")) {
 
-//     // 检查是否成功读取
-//     if (result.isEmpty() || result.contains("Can't found", Qt::CaseInsensitive) || result.contains("No valid", Qt::CaseInsensitive)) {
-//         QMessageBox::warning(this, tr("读取失败"), tr("未检测到卡片，请调整卡片位置后重试！"));
-//         return;
-//     }
+        QMessageBox::warning(this, tr("未检测到卡片"), tr("读取失败，未识别到卡片！\n\n👉 请确保卡片紧贴读卡器感应区，或尝试调整卡片位置后重试。"));
 
-//     // 1. 提取基本信息 (UID, ATQA, SAK)
-//     QString uid = "-", atqa = "-", sak = "-";
-//     QStringList lines = result.split("\n");
-//     for (const QString &line : lines) {
-//         if (line.contains("UID")) uid = QString(line).remove("UID").remove(QRegularExpression("[^0-9a-fA-F]")).trimmed();
-//         else if (line.contains("ATQA")) atqa = QString(line).remove("ATQA").remove(QRegularExpression("[^0-9a-fA-F]")).trimmed();
-//         else if (line.contains("SAK")) sak = QString(line).remove("SAK").remove(QRegularExpression("\\[.+?\\]")).remove(QRegularExpression("[^0-9a-fA-F]")).trimmed();
-//     }
+        // 依然把执行失败的记录输出到控制台，供排查
+        refreshCMD("hf mf info");
+        if (!result.isEmpty()) refreshOutput(result);
+        return;
+    }
 
-//     // 2. 融合你的“智能破解建议”逻辑 (直接从 result 中解析，不再依赖控制台延迟触发)
-//     QString vulnHint = tr("👉 建议步骤：请点击上方【(2)扫描默认密码】(Chk) 碰碰运气。"); // 默认兜底建议
+    // === 成功读到卡：不弹多余的窗，直接输出结果并切换页面 ===
+    refreshCMD("hf mf info");
+    refreshOutput(result); // 这里会自动触发你写在 refreshOutput 里的那套智能提示弹窗
+    Util::gotoRawTab();    // 切换到命令输出页面
+}
 
-//     if (result.contains("Hint: Try `script run fm11rf08s_recovery.py", Qt::CaseInsensitive)) {
-//         vulnHint = tr("【检测到复旦三代无漏洞卡 (FM11RF08S)】\n👉 建议步骤：直接点击【解三代卡】运行脚本。");
-//     } else if (result.contains("[+] Static nonce... yes", Qt::CaseInsensitive) || result.contains("[+] Static enc nonce... yes", Qt::CaseInsensitive)) {
-//         vulnHint = tr("【检测到静态随机数 (Static Nonce) 漏洞】\n👉 操作建议：先点击【(2)扫描默认密码】，再点击【知一求全】极速秒解。");
-//     } else if (result.contains("[+] Prng....... weak", Qt::CaseInsensitive)) {
-//         vulnHint = tr("【检测到弱随机数 (Weak PRNG) 漏洞】\n👉 操作建议：先点击【(2)扫描默认密码】，再点击【知一求全】常规破解。");
-//     } else if (result.contains("Hardened MIFARE Classic", Qt::CaseInsensitive)) {
-//         vulnHint = tr("【检测到强化加密 (Hardened) 卡片】\n👉 操作建议：先点击【(2)扫描默认密码】，如果扫到密码，再使用【Hardnested攻击】。");
-//     }
-
-//     // 3. 拼接终极弹窗展示
-//     QString msg = tr("读取卡片信息成功！\n\n"
-//                      "卡号 (UID): %1\n"
-//                      "厂商 (ATQA): %2\n"
-//                      "类型 (SAK): %3\n\n"
-//                      "------------------------\n"
-//                      "%4")
-//                       .arg(uid, atqa, sak, vulnHint);
-
-//     QMessageBox::information(this, tr("第一步：卡片状态与破解诊断"), msg);
-
-//     // 4. (可选) 将完整的输出同步显示在底部的 Raw 控制台中，方便高级用户看日志
-//     refreshCMD("hf mf info");
-//     refreshOutput(result);
-// }
 
 void MainWindow::on_MF_Attack_chkButton_clicked() {
     setState(false);
@@ -1189,9 +1163,37 @@ void MainWindow::on_MF_RW_writeBlockButton_clicked() {
 }
 
 void MainWindow::on_MF_RW_writeSelectedButton_clicked() {
+    QString uid = mifare->data_getUID();
+    QString displayUid;
+
+    // 允许 0 块为空，只是在显示上标记为未知
+    if (uid.isEmpty() || uid.contains("?") || uid == "00000000") {
+        displayUid = tr("<span style='color: #E53935; font-size: 14px;'><b>未知 (空数据)</b></span>");
+    } else {
+        displayUid = QString("<span style='color: #E53935; font-size: 16px;'><b>%1</b></span>").arg(uid);
+    }
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("写卡确认"));
+    msgBox.setIcon(QMessageBox::Warning);
+
+    // 提示文案修改为“勾选的数据”，让语意更准确
+    msgBox.setText(tr("<html>即将把当前面板<b>勾选的数据</b>写入目标卡片！<br><br>"
+                      "当前面板 0 块的卡号 (UID) 为: <br>"
+                      "%1<br><br>"
+                      "提示：如果面板数据不全，请确保您只勾选了需要写入的特定块！</html>").arg(displayUid));
+
+    QPushButton *yesBtn = msgBox.addButton(tr("确认写入"), QMessageBox::AcceptRole);
+    QPushButton *cancelBtn = msgBox.addButton(tr("取消"), QMessageBox::RejectRole);
+    msgBox.setDefaultButton(cancelBtn); // 默认选取消，防误触
+
+    msgBox.exec();
+    if (msgBox.clickedButton() != yesBtn) {
+        return; // 用户点击取消，退出
+    }
+
     setState(false);
     mifare->writeSelected(Mifare::TARGET_MIFARE);
-    // --- 新增：切回主页面 ---
     ui->funcTab->setCurrentIndex(0);
     if (!dockList.isEmpty()) dockList[0]->raise();
     setState(true);
@@ -1426,8 +1428,37 @@ void MainWindow::on_MF_UID_readBlockButton_clicked() {
 }
 
 void MainWindow::on_MF_UID_writeSelectedButton_clicked() {
+    QString uid = mifare->data_getUID();
+    QString displayUid;
+
+    if (uid.isEmpty() || uid.contains("?") || uid == "00000000") {
+        displayUid = tr("<span style='color: #E53935; font-size: 14px;'><b>未知 (空数据)</b></span>");
+    } else {
+        displayUid = QString("<span style='color: #E53935; font-size: 16px;'><b>%1</b></span>").arg(uid);
+    }
+
+    QMessageBox msgBox(this);
+    msgBox.setWindowTitle(tr("魔术卡写卡确认"));
+    msgBox.setIcon(QMessageBox::Warning);
+
+    msgBox.setText(tr("<html>即将把当前面板<b>勾选的数据</b>写入目标<b>魔术卡(CUID/UID等)</b>！<br><br>"
+                      "当前面板 0 块的卡号 (UID) 为: <br>"
+                      "%1<br><br>"
+                      "⚠️ 提示：如果面板数据不全，请确保您只勾选了需要写入的特定块！</html>").arg(displayUid));
+
+    QPushButton *yesBtn = msgBox.addButton(tr("确认写入"), QMessageBox::AcceptRole);
+    QPushButton *cancelBtn = msgBox.addButton(tr("取消"), QMessageBox::RejectRole);
+    msgBox.setDefaultButton(cancelBtn); // 默认选取消
+
+    msgBox.exec();
+    if (msgBox.clickedButton() != yesBtn) {
+        return;
+    }
+
     setState(false);
     mifare->writeSelected(Mifare::TARGET_UID);
+    ui->funcTab->setCurrentIndex(0);
+    if (!dockList.isEmpty()) dockList[0]->raise();
     setState(true);
 }
 
@@ -1500,7 +1531,11 @@ void MainWindow::on_MF_UID_setParaButton_clicked() {
     setState(true);
 }
 
-void MainWindow::on_MF_UID_lockButton_clicked() { mifare->lockC(); }
+void MainWindow::on_MF_UID_lockButton_clicked() {
+    setState(false); // 锁定界面，防止重复点击
+    mifare->lockC();
+    setState(true);  // 解锁界面
+}
 
 void MainWindow::on_MF_Sim_readSelectedButton_clicked() {
     setState(false);
@@ -2660,5 +2695,22 @@ void MainWindow::on_MF_RW_modifyCardCodeButton_clicked(){
                                     "👉 点击下方的【写入单个块】按钮即可写入卡片！"));
     }
 
+}
+
+
+void MainWindow::on_MF_File_clearAllButton_clicked()
+{
+    // 增加一个清空确认，防止手滑点错
+    if (QMessageBox::question(this, tr("清空确认"),
+                              tr("确定要清空面板上的【所有数据】和【所有密码】吗？\n(未保存的数据将会丢失)"),
+                              QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes)
+    {
+        // 传入 true 表示彻底清除内存 List
+        mifare->data_clearKey(true);
+        mifare->data_clearData(true);
+        // 重新同步到 UI 表格上
+        mifare->data_syncWithKeyWidget();
+        mifare->data_syncWithDataWidget();
+    }
 }
 

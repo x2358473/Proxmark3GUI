@@ -709,6 +709,13 @@
               </widget>
              </item>
              <item>
+              <widget class="QPushButton" name="MF_File_clearAllButton">
+               <property name="text">
+                <string>Clear All</string>
+               </property>
+              </widget>
+             </item>
+             <item>
               <widget class="QPushButton" name="MF_RW_generateEmptyDataButton">
                <property name="text">
                 <string>Generate Empty Data</string>
@@ -1024,6 +1031,19 @@
                   </property>
                  </widget>
                 </item>
+                <item row="3" column="1">
+                 <widget class="QPushButton" name="MF_UID_lockButton">
+                  <property name="minimumSize">
+                   <size>
+                    <width>0</width>
+                    <height>0</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>Lock UFUID Card</string>
+                  </property>
+                 </widget>
+                </item>
                </layout>
               </widget>
              </item>
@@ -1048,19 +1068,6 @@
                 <property name="bottomMargin">
                  <number>5</number>
                 </property>
-                <item row="0" column="2">
-                 <widget class="QPushButton" name="MF_UID_lockButton">
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>Lock UFUID Card</string>
-                  </property>
-                 </widget>
-                </item>
                 <item row="1" column="2">
                  <widget class="QPushButton" name="MF_UID_aboutUIDButton">
                   <property name="minimumSize">
