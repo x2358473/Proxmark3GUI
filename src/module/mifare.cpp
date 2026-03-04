@@ -1421,9 +1421,19 @@ bool Mifare::data_compareDataFile(const QString &filename) {
     }
 
     int diffCount = 0;
-    // 使用 HTML 格式来实现全量展示和差异标红，等宽字体保证上下对齐
-    QString diffResult = "<div style='font-family: Consolas, monospace; font-size: 13px;'>";
+
+    // 🌟 修复 1：去掉 HTML 里写死的字体，让 Qt 统一接管字体渲染
+    QString diffResult = "<div style='font-size: 13px;'>";
     diffResult += "<h3>" + tr("【数据对比结果：面板数据 vs 新加载文件】") + "</h3>";
+
+    // 格式化辅助函数：4字节（8字符）一组，中间加空格
+    auto formatData = [](const QString& str) {
+        if (str.length() == 32) {
+            return str.mid(0, 8) + " " + str.mid(8, 8) + " " +
+                   str.mid(16, 8) + " " + str.mid(24, 8);
+        }
+        return str;
+    };
 
     for (int i = 0; i < cardType.block_size; i++) {
         QString fileData = "";
@@ -1440,48 +1450,46 @@ bool Mifare::data_compareDataFile(const QString &filename) {
         QString panelData = dataList->at(i);
         if (fileData.isEmpty()) fileData = "读取失败/数据缺失";
 
-        if (fileData != panelData) {
-            // 不一致：使用标准文本符号 ✖，保证大小对齐
+        bool isDiff = (fileData != panelData);
+
+        // 使用空格格式化即将展示的数据
+        QString displayPanelData = formatData(panelData);
+        QString displayFileData = formatData(fileData);
+
+        if (isDiff) {
             diffResult += QString("<div style='margin-bottom: 10px;'>") +
                           tr("<span style='color: #E53935; font-size: 14px;'><b>[✖] 块 (Block) %1: [不一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(fileData) + "</div>";
+                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(displayPanelData) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(displayFileData) + "</div>";
             diffCount++;
         } else {
-            // 一致：使用标准文本符号 ✔，保证大小对齐
             diffResult += QString("<div style='margin-bottom: 10px;'>") +
                           tr("<span style='color: #43A047; font-size: 14px;'><b>[✔] 块 (Block) %1: [一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(fileData) + "</div>";
+                          tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(displayPanelData) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(displayFileData) + "</div>";
         }
-
-        // if (fileData != panelData) {
-        //     // 不一致：标题标红并加 ❌ 粗体，数据也标红
-        //     diffResult += QString("<div style='margin-bottom: 10px;'>") +
-        //                   tr("<span style='color: #E53935; font-size: 14px;'>❌ <b>块 (Block) %1: [不一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(fileData) + "</div>";
-        //     diffCount++;
-        // } else {
-        //     // 一致：标题标绿并加 ✅，数据使用较淡的灰色以降低视觉干扰
-        //     diffResult += QString("<div style='margin-bottom: 10px;'>") +
-        //                   tr("<span style='color: #43A047; font-size: 14px;'>✅ <b>块 (Block) %1: [一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(fileData) + "</div>";
-        // }
     }
     diffResult += "</div>";
 
     // 弹窗展示
     QDialog *diffDialog = new QDialog(parent);
     diffDialog->setWindowTitle(tr("对比完成：发现 %1 个不同数据块").arg(diffCount));
-    diffDialog->resize(650, 500);
+    diffDialog->resize(680, 500); // 稍微加宽一点，防止等宽字体渲染变宽后导致自动换行
 
     QVBoxLayout *layout = new QVBoxLayout(diffDialog);
 
     QTextEdit *textEdit = new QTextEdit(diffDialog);
     textEdit->setReadOnly(true);
-    textEdit->setHtml(diffResult); // 核心：按 HTML 渲染，自动处理颜色
+
+    // ==========================================
+    // 🌟 修复 2：在 C++ 层强制给 QTextEdit 设置系统级等宽字体
+    // ==========================================
+    QFont monoFont("Menlo", 13);             // 指定 macOS 下视觉效果极佳的等宽字体 Menlo
+    monoFont.setStyleHint(QFont::Monospace); // 兜底策略：强行要求系统匹配等宽字体
+    textEdit->setFont(monoFont);             // 绑定到文本框
+    // ==========================================
+
+    textEdit->setHtml(diffResult); // 核心：按 HTML 渲染文本颜色，但字体由外部控件接管
 
     QPushButton *closeBtn = new QPushButton(tr("关闭 (Close)"), diffDialog);
     connect(closeBtn, &QPushButton::clicked, diffDialog, &QDialog::accept);

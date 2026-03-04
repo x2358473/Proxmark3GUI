@@ -601,11 +601,11 @@ void MainWindow::refreshOutput(const QString &output) {
                 //                             "1. 保持卡片在读卡器上不要移动。<br>"
                 //                             "2. 点击【读取选中块】或【读取单个块】确认数据。"));
                 QMessageBox::information(this, tr("使用Dump写卡完成"),
-                                          tr("✅ <b>数据写入指令已执行完毕！</b><br><br>"
-                                             "👉 <b>建议验证步骤：</b><br>"
-                                             "1. 保持卡片在读卡器上不要移动，重新执行破解流程。<br>"
-                                             "2. 破解成功后面板区会更新当前卡的数据与密码。<br>"
-                                             "3. 点击【数据比较】。选择原卡的Dump文件比较"));
+                                         tr("✅ <b>数据写入指令已执行完毕！</b><br><br>"
+                                            "👉 <b>建议验证步骤：</b><br>"
+                                            "1. 保持卡片在读卡器上不要移动，重新执行破解流程。<br>"
+                                            "2. 破解成功后面板区会更新当前卡的数据与密码。<br>"
+                                            "3. 点击【数据比较】。选择原卡的Dump文件比较"));
             } else if (currentType == 4) {
                 QMessageBox::information(this, tr("高级清卡完成"),
                                          tr("🧹 <b>卡片已成功重置为空白状态！</b><br><br>"
@@ -752,7 +752,14 @@ void MainWindow::on_MF_keyWidget_resized(QObject *obj_addr, QEvent &event) {
     if (obj_addr == ui->MF_keyWidget && event.type() == QEvent::Resize) {
         QTableWidget *widget = (QTableWidget *)obj_addr;
         int keyItemWidth = widget->width();
-        keyItemWidth -= widget->verticalScrollBar()->width();
+
+        // ✨ 跨平台修复：macOS 的悬浮滚动条处理
+#ifdef Q_OS_MAC
+        keyItemWidth -= 15; // Mac 下给予固定的安全边距，防止字贴边
+#else
+        keyItemWidth -= widget->verticalScrollBar()->width(); // Win/Linux 保持减去实体滚动条宽度
+#endif
+
         keyItemWidth -= 2 * widget->frameWidth();
         keyItemWidth -= widget->horizontalHeader()->sectionSize(0);
         widget->horizontalHeader()->resizeSection(1, keyItemWidth / 2);
@@ -1086,13 +1093,19 @@ void MainWindow::on_MF_Attack_infoButton_clicked() {
         QMessageBox::warning(this, tr("未检测到卡片"), tr("读取失败，未识别到卡片！\n\n👉 请确保卡片紧贴读卡器感应区，或尝试调整卡片位置后重试。"));
 
         // 依然把执行失败的记录输出到控制台，供排查
-        refreshCMD("hf mf info");
+        // ❌ 删除原来的这行：refreshCMD("hf mf info");
+        // ✅ 替换为向终端输出一条伪造的命令提示，保证阅读体验
+        refreshOutput("pm3 --> hf mf info\n");
+
         if (!result.isEmpty()) refreshOutput(result);
         return;
     }
 
     // === 成功读到卡：不弹多余的窗，直接输出结果并切换页面 ===
-    refreshCMD("hf mf info");
+    // ❌ 删除原来的这行：refreshCMD("hf mf info");
+    // ✅ 替换为：
+    refreshOutput("pm3 --> hf mf info\n");
+
     refreshOutput(result); // 这里会自动触发你写在 refreshOutput 里的那套智能提示弹窗
     Util::gotoRawTab();    // 切换到命令输出页面
 }
@@ -1709,13 +1722,13 @@ void MainWindow::uiInit() {
             &MainWindow::on_MF_keyWidget_resized);
     ui->Raw_outputEdit->installEventFilter(keyEventFilter);
 
-    // ==========================================
-    // ✨ 在这里插入 3 行代码：强制给终端设置默认等宽字体
-    // ==========================================
-    QFont consoleFont("Menlo", 13);               // 指定 Mac 下极佳的等宽字体 Menlo
-    consoleFont.setStyleHint(QFont::Monospace);   // 兜底策略：如果别的系统没有 Menlo，强行找一个等宽字体替代
-    ui->Raw_outputEdit->setFont(consoleFont);     // 应用到终端控件上
-    // ==========================================
+    // // ==========================================
+    // // ✨ 在这里插入 3 行代码：强制给终端设置默认等宽字体
+    // // ==========================================
+    // QFont consoleFont("Menlo", 13);               // 指定 Mac 下极佳的等宽字体 Menlo
+    // consoleFont.setStyleHint(QFont::Monospace);   // 兜底策略：如果别的系统没有 Menlo，强行找一个等宽字体替代
+    // ui->Raw_outputEdit->setFont(consoleFont);     // 应用到终端控件上
+    // // ==========================================
 
     connectStatusBar = new QLabel(this);
     programStatusBar = new QLabel(this);
@@ -1730,10 +1743,20 @@ void MainWindow::uiInit() {
     ui->statusbar->addPermanentWidget(programStatusBar, 1);
     ui->statusbar->addPermanentWidget(stopButton);
 
+// ✨ 跨平台修复：智能分配列宽与行高，防止 macOS 下文字拥挤或被削顶
+#ifdef Q_OS_MAC
+    ui->MF_dataWidget->setColumnWidth(0, 60); // 稍微加宽
+    ui->MF_dataWidget->setColumnWidth(1, 60);
+    ui->MF_keyWidget->setColumnWidth(0, 50);
+
+    // 强制增加表格行高，防止高分屏下文字显示不全
+    ui->MF_dataWidget->verticalHeader()->setDefaultSectionSize(26);
+    ui->MF_keyWidget->verticalHeader()->setDefaultSectionSize(26);
+#else
     ui->MF_dataWidget->setColumnWidth(0, 55);
     ui->MF_dataWidget->setColumnWidth(1, 55);
-
     ui->MF_keyWidget->setColumnWidth(0, 45);
+#endif
 
     MF_widgetReset();
     MFCardTypeBtnGroup = new QButtonGroup(this);
@@ -1837,13 +1860,31 @@ void MainWindow::uiInit() {
     settings->endGroup();
     ui->Set_UI_Opacity_Box->setValue(opacity);
     ui->Set_UI_Theme_nameBox->setCurrentIndex((themeId == -1) ? 0 : themeId);
-
     settings->beginGroup("UI");
+// === 新增：跨平台智能识别默认等宽字体 ===
+#ifdef Q_OS_MAC
+    QString defaultMonoFont = "Menlo";
+    int defaultDataFontSize = 13;
+    int defaultCmdFontSize = 13;
+#elif defined(Q_OS_WIN)
+    QString defaultMonoFont = "Consolas";
+    int defaultDataFontSize = 12;
+    int defaultCmdFontSize = 12;
+#else
+    QString defaultMonoFont = "Monospace";
+    int defaultDataFontSize = 12;
+    int defaultCmdFontSize = 12;
+#endif
+    // =========================================
+    // QApplication::font() might return wrong result
+    // If fonts are not specified in config file, don't touch them.
     // QApplication::font() might return wrong result
     // If fonts are not specified in config file, don't touch them.
     QString tmpFontName;
     int tmpFontSize;
     bool fontValid = false, dataFontValid = false, CMDFontValid = false;
+
+    // 1. 全局普通字体
     tmpFontName = settings->value("Font_Name", "").toString();
     tmpFontSize = settings->value("Font_Size", -1).toInt();
     if (!tmpFontName.isEmpty() && tmpFontSize != -1 &&
@@ -1852,17 +1893,20 @@ void MainWindow::uiInit() {
         ui->Set_UI_Font_sizeBox->setValue(tmpFontSize);
         fontValid = true;
     }
-    // The default font should be the same as MF_dataWidget's and MF_keyWidget's.
-    tmpFontName = settings->value("DataFont_Name", "Consolas").toString();
-    tmpFontSize = settings->value("DataFont_Size", 12).toInt();
+
+    // 2. 数据面板字体 (左侧表格和右侧密钥区，修复错位)
+    tmpFontName = settings->value("DataFont_Name", defaultMonoFont).toString();
+    tmpFontSize = settings->value("DataFont_Size", defaultDataFontSize).toInt();
     if (!tmpFontName.isEmpty() && tmpFontSize != -1 &&
         tmpFontName == QFont(tmpFontName).family()) {
         ui->Set_UI_DataFont_nameBox->setCurrentFont(QFont(tmpFontName));
         ui->Set_UI_DataFont_sizeBox->setValue(tmpFontSize);
         dataFontValid = true;
     }
-    tmpFontName = settings->value("CMDFont_Name", "").toString();
-    tmpFontSize = settings->value("CMDFont_Size", -1).toInt();
+
+    // 3. 终端命令行字体 (修复输出不对齐)
+    tmpFontName = settings->value("CMDFont_Name", defaultMonoFont).toString();
+    tmpFontSize = settings->value("CMDFont_Size", defaultCmdFontSize).toInt();
     if (!tmpFontName.isEmpty() && tmpFontSize != -1 &&
         tmpFontName == QFont(tmpFontName).family()) {
         ui->Set_UI_CMDFont_nameBox->setCurrentFont(QFont(tmpFontName));
@@ -1989,7 +2033,15 @@ void MainWindow::setState(bool st) {
 void MainWindow::setButtonsEnabled(bool st) {
     ui->MF_attackGroupBox->setEnabled(st);
     ui->MF_normalGroupBox->setEnabled(st);
+
+    // 👇 新增：禁用 Block Operation 模块 (Read One / Write One / Modify Code)
+    ui->MF_normalGroupBox_3->setEnabled(st);
+
     ui->MF_UIDGroupBox->setEnabled(st);
+
+    // 👇 如果你确实连离线查看 Dump 的功能都不想给，可以取消下面这行的注释来禁用 File 模块
+    // ui->MF_fileGroupBox->setEnabled(st);
+
     // ui->MF_simGroupBox->setEnabled(st);
     ui->Raw_CMDEdit->setEnabled(st);
     ui->Raw_sendCMDButton->setEnabled(st);
@@ -2631,7 +2683,7 @@ void MainWindow::on_MF_RW_modifyCardCodeButton_clicked(){
     // 声明负责显示的 Label 指针
     QLabel *uidDataLabel, *bccDataLabel, *ataDataLabel, *manuDataLabel;
 
-    previewLayout->addLayout(createBlock("UID", uidDataLabel));
+    previewLayout->addLayout(createBlock("卡号(UID)", uidDataLabel));
     previewLayout->addLayout(createBlock("BCC", bccDataLabel));
     previewLayout->addLayout(createBlock("SAK/ATQA", ataDataLabel));
     previewLayout->addLayout(createBlock("厂商数据", manuDataLabel));
