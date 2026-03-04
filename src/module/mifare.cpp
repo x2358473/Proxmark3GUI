@@ -12,6 +12,7 @@
 #include <QComboBox>
 #include <QLineEdit>
 #include <QLabel>
+#include <QTextBrowser>
 
 const Mifare::CardType Mifare::card_mini = {
     0, 5, 20, {4, 4, 4, 4, 4}, {0, 4, 8, 12, 16}, "mini"};
@@ -78,96 +79,96 @@ const Mifare::AccessType Mifare::trailerWriteCondition[8][3] = {
 
 Mifare::Mifare(Ui::MainWindow *ui, Util *addr, QWidget *parent)
     : QObject(parent) {
-  this->parent = parent;
-  util = addr;
-  this->ui = ui;
-  cardType = card_1k;
-  keyAList = new QStringList();
-  keyBList = new QStringList();
-  dataList = new QStringList();
-  data_clearKey();  // fill with blank QString
-  data_clearData(); // fill with blank QString
-  dataPattern = new QRegularExpression("([0-9a-fA-F]{2} ){15}[0-9a-fA-F]{2}");
-  keyPattern_res =
-      new QRegularExpression("\\|\\s*\\d{3}\\s*\\|\\s*.+?\\s*\\|\\s*.+?\\s*\\|"
-                             "\\s*.+?\\s*\\|\\s*.+?\\s*\\|");
-  keyPattern = new QRegularExpression(
-      "\\|\\s*\\d{3}\\s*\\|\\s*.+?\\s*\\|\\s*.+?\\s*\\|");
+    this->parent = parent;
+    util = addr;
+    this->ui = ui;
+    cardType = card_1k;
+    keyAList = new QStringList();
+    keyBList = new QStringList();
+    dataList = new QStringList();
+    data_clearKey();  // fill with blank QString
+    data_clearData(); // fill with blank QString
+    dataPattern = new QRegularExpression("([0-9a-fA-F]{2} ){15}[0-9a-fA-F]{2}");
+    keyPattern_res =
+        new QRegularExpression("\\|\\s*\\d{3}\\s*\\|\\s*.+?\\s*\\|\\s*.+?\\s*\\|"
+                               "\\s*.+?\\s*\\|\\s*.+?\\s*\\|");
+    keyPattern = new QRegularExpression(
+        "\\|\\s*\\d{3}\\s*\\|\\s*.+?\\s*\\|\\s*.+?\\s*\\|");
 }
 
 void Mifare::setConfigMap(const QVariantMap &configMap) {
-  this->configMap = configMap;
+    this->configMap = configMap;
 }
 
 QMap<QString, QString> Mifare::info(bool isRequiringOutput) {
-  QMap<QString, QString> map;
-  QVariantMap config = configMap["info"].toMap();
-  if (isRequiringOutput) {
-    QString cmd = config["basic cmd"].toString();
+    QMap<QString, QString> map;
+    QVariantMap config = configMap["info"].toMap();
+    if (isRequiringOutput) {
+        QString cmd = config["basic cmd"].toString();
 
-    // for official client
-    if (cmd.isEmpty())
-      cmd = config["cmd"].toString();
-    QString result = util->execCMDWithOutput(cmd, 500);
-    QStringList lineList = result.split("\n");
+        // for official client
+        if (cmd.isEmpty())
+            cmd = config["cmd"].toString();
+        QString result = util->execCMDWithOutput(cmd, 500);
+        QStringList lineList = result.split("\n");
 
-    for (auto line = lineList.begin(); line != lineList.end(); line++) {
-      if (line->contains("UID"))
-        map["UID"] = line->remove("UID")
-                         .remove(QRegularExpression("[^0-9a-fA-F]"))
-                         .trimmed();
-      else if (line->contains("ATQA"))
-        map["ATQA"] = line->remove("ATQA")
-                          .remove(QRegularExpression("[^0-9a-fA-F]"))
-                          .trimmed();
-      else if (line->contains("SAK"))
-        map["SAK"] = line->remove("SAK")
-                         .remove(QRegularExpression("\\[.+?\\]"))
-                         .remove(QRegularExpression("[^0-9a-fA-F]"))
-                         .trimmed();
+        for (auto line = lineList.begin(); line != lineList.end(); line++) {
+            if (line->contains("UID"))
+                map["UID"] = line->remove("UID")
+                                 .remove(QRegularExpression("[^0-9a-fA-F]"))
+                                 .trimmed();
+            else if (line->contains("ATQA"))
+                map["ATQA"] = line->remove("ATQA")
+                                  .remove(QRegularExpression("[^0-9a-fA-F]"))
+                                  .trimmed();
+            else if (line->contains("SAK"))
+                map["SAK"] = line->remove("SAK")
+                                 .remove(QRegularExpression("\\[.+?\\]"))
+                                 .remove(QRegularExpression("[^0-9a-fA-F]"))
+                                 .trimmed();
+        }
+    } else {
+        util->execCMD(config["cmd"].toString());
+        Util::gotoRawTab();
     }
-  } else {
-    util->execCMD(config["cmd"].toString());
-    Util::gotoRawTab();
-  }
-  return map;
+    return map;
 }
 
 void Mifare::chk() {
-  Util::gotoRawTab(); // <--- 新增：一开始就跳到控制台看进度
-  QRegularExpressionMatch reMatch;
-  QString result;
-  int offset = 0;
-  QString data;
-  QVariantMap config = configMap["check"].toMap();
-  QString cmd = config["cmd"].toString();
-  int keyAindex = config["key A index"].toInt();
-  int keyBindex = config["key B index"].toInt();
-  QRegularExpression keyPattern = QRegularExpression(
-      config["key pattern"].toString(), QRegularExpression::MultilineOption);
-  cmd.replace("<card type>",
-              config["card type"].toMap()[cardType.typeText].toString());
+    Util::gotoRawTab(); // <--- 新增：一开始就跳到控制台看进度
+    QRegularExpressionMatch reMatch;
+    QString result;
+    int offset = 0;
+    QString data;
+    QVariantMap config = configMap["check"].toMap();
+    QString cmd = config["cmd"].toString();
+    int keyAindex = config["key A index"].toInt();
+    int keyBindex = config["key B index"].toInt();
+    QRegularExpression keyPattern = QRegularExpression(
+        config["key pattern"].toString(), QRegularExpression::MultilineOption);
+    cmd.replace("<card type>",
+                config["card type"].toMap()[cardType.typeText].toString());
 
-  result = util->execCMDWithOutput(
-      cmd, Util::ReturnTrigger(1000 + cardType.sector_size * 200,
-                               {"No valid", keyPattern.pattern()}));
-  for (int i = 0; i < cardType.sector_size; i++) {
-    reMatch = keyPattern.match(result, offset);
-    offset = reMatch.capturedStart();
-    if (reMatch.hasMatch()) {
-      data = reMatch.captured().toUpper();
-      offset += data.length();
-      QStringList cells = data.remove(" ").split("|");
-      if (!cells[keyAindex].contains(QRegularExpression("[^0-9a-fA-F]"))) {
-        keyAList->replace(i, cells[keyAindex]);
-      }
-      if (!cells[keyBindex].contains(QRegularExpression("[^0-9a-fA-F]"))) {
-        keyBList->replace(i, cells[keyBindex]);
-      }
+    result = util->execCMDWithOutput(
+        cmd, Util::ReturnTrigger(1000 + cardType.sector_size * 200,
+                            {"No valid", keyPattern.pattern()}));
+    for (int i = 0; i < cardType.sector_size; i++) {
+        reMatch = keyPattern.match(result, offset);
+        offset = reMatch.capturedStart();
+        if (reMatch.hasMatch()) {
+            data = reMatch.captured().toUpper();
+            offset += data.length();
+            QStringList cells = data.remove(" ").split("|");
+            if (!cells[keyAindex].contains(QRegularExpression("[^0-9a-fA-F]"))) {
+                keyAList->replace(i, cells[keyAindex]);
+            }
+            if (!cells[keyBindex].contains(QRegularExpression("[^0-9a-fA-F]"))) {
+                keyBList->replace(i, cells[keyBindex]);
+            }
+        }
     }
-  }
 
-  data_syncWithKeyWidget();
+    data_syncWithKeyWidget();
 }
 
 void Mifare::nested(bool isStaticNested) {
@@ -482,185 +483,185 @@ void Mifare::darkside() {
 }
 
 void Mifare::sniff() {
-  QVariantMap config = configMap["sniff"].toMap();
-  util->execCMD(config["cmd"].toString());
+    QVariantMap config = configMap["sniff"].toMap();
+    util->execCMD(config["cmd"].toString());
 
-  Util::gotoRawTab();
+    Util::gotoRawTab();
 }
 
 void Mifare::sniff14a() {
-  QVariantMap config = configMap["sniff 14a"].toMap();
-  util->execCMD(config["cmd"].toString());
+    QVariantMap config = configMap["sniff 14a"].toMap();
+    util->execCMD(config["cmd"].toString());
 
-  Util::gotoRawTab();
+    Util::gotoRawTab();
 }
 
 void Mifare::list() {
-  QVariantMap config = configMap["list"].toMap();
-  util->execCMD(config["cmd"].toString());
+    QVariantMap config = configMap["list"].toMap();
+    util->execCMD(config["cmd"].toString());
 
-  Util::gotoRawTab();
+    Util::gotoRawTab();
 }
 
 QString Mifare::_readblk(int blockId, KeyType keyType, const QString &key,
                          TargetType targetType, int waitTime) {
-  QString data;
-  QString result;
-  QRegularExpressionMatch currMatch;
-  bool isTrailerBlock =
-      (blockId < 128 && ((blockId + 1) % 4 == 0)) || ((blockId + 1) % 16 == 0);
+    QString data;
+    QString result;
+    QRegularExpressionMatch currMatch;
+    bool isTrailerBlock =
+        (blockId < 128 && ((blockId + 1) % 4 == 0)) || ((blockId + 1) % 16 == 0);
 
-  if (targetType == TARGET_MIFARE) {
-    if (!data_isKeyValid(key)) {
-      return "";
-    }
-    QVariantMap config = configMap["normal read block"].toMap();
-    QString cmd = config["cmd"].toString();
-    QRegularExpression dataPattern =
-        QRegularExpression(config["data pattern"].toString());
-    cmd.replace("<block>", QString::number(blockId));
-    cmd.replace("<key type>",
-                config["key type"].toMap()[QString((char)keyType)].toString());
-    cmd.replace("<key>", key);
-    // use the given key type to read the target block
-    result = util->execCMDWithOutput(cmd, waitTime);
-
-    currMatch = dataPattern.match(result);
-    if (currMatch.hasMatch()) {
-      data = currMatch.captured().toUpper();
-      data.remove(" ");
-      // when the target block is a key block and the given key type is KeyA,
-      // try to check whether the KeyB is valid(by Access Bits) if the given key
-      // type is KeyB, it will never get the KeyA from the key block
-      if (isTrailerBlock &&
-          keyType ==
-              KEY_A) // in this case, the Access Bits is always accessible
-      {
-        data.replace(0, 12, key);
-        QList<quint8> ACBits = data_getACBits(data.mid(12, 8));
-        if (ACBits[3] == 2 || ACBits[3] == 3 || ACBits[3] == 5 ||
-            ACBits[3] == 6 ||
-            ACBits[3] == 7) // in these cases, the KeyB cannot be read by KeyA
-        {
-          data.replace(20, 12, "????????????");
+    if (targetType == TARGET_MIFARE) {
+        if (!data_isKeyValid(key)) {
+            return "";
         }
-      } else if (isTrailerBlock && keyType == KEY_B) {
-        data.replace(20, 12, key);
-        ;
-        data.replace(0, 12, "????????????"); // fill the keyA part with ?
-      }
-    } else
-      data = "";
-  } else if (targetType == TARGET_UID) {
-    QVariantMap config = configMap["Magic Card read block"].toMap();
-    QString cmd = config["cmd"].toString();
-    QRegularExpression dataPattern =
-        QRegularExpression(config["data pattern"].toString());
-    cmd.replace("<block>", QString::number(blockId));
-    result = util->execCMDWithOutput(cmd, waitTime);
-    currMatch = dataPattern.match(result);
-    if (currMatch.hasMatch()) {
-      data = currMatch.captured().toUpper();
-      data.remove(" ");
-    } else
-      data = "";
-  } else if (targetType == TARGET_EMULATOR) {
-    QVariantMap config = configMap["emulator read block"].toMap();
-    QString cmd = config["cmd"].toString();
-    QRegularExpression dataPattern =
-        QRegularExpression(config["data pattern"].toString());
-    cmd.replace("<block>", QString::number(blockId));
-    result = util->execCMDWithOutput(cmd, 150);
-    data = dataPattern.match(result).captured().toUpper();
-    data.remove(" ");
-  }
+        QVariantMap config = configMap["normal read block"].toMap();
+        QString cmd = config["cmd"].toString();
+        QRegularExpression dataPattern =
+            QRegularExpression(config["data pattern"].toString());
+        cmd.replace("<block>", QString::number(blockId));
+        cmd.replace("<key type>",
+                    config["key type"].toMap()[QString((char)keyType)].toString());
+        cmd.replace("<key>", key);
+        // use the given key type to read the target block
+        result = util->execCMDWithOutput(cmd, waitTime);
 
-  return data;
+        currMatch = dataPattern.match(result);
+        if (currMatch.hasMatch()) {
+            data = currMatch.captured().toUpper();
+            data.remove(" ");
+            // when the target block is a key block and the given key type is KeyA,
+            // try to check whether the KeyB is valid(by Access Bits) if the given key
+            // type is KeyB, it will never get the KeyA from the key block
+            if (isTrailerBlock &&
+                keyType ==
+                    KEY_A) // in this case, the Access Bits is always accessible
+            {
+                data.replace(0, 12, key);
+                QList<quint8> ACBits = data_getACBits(data.mid(12, 8));
+                if (ACBits[3] == 2 || ACBits[3] == 3 || ACBits[3] == 5 ||
+                    ACBits[3] == 6 ||
+                    ACBits[3] == 7) // in these cases, the KeyB cannot be read by KeyA
+                {
+                    data.replace(20, 12, "????????????");
+                }
+            } else if (isTrailerBlock && keyType == KEY_B) {
+                data.replace(20, 12, key);
+                ;
+                data.replace(0, 12, "????????????"); // fill the keyA part with ?
+            }
+        } else
+            data = "";
+    } else if (targetType == TARGET_UID) {
+        QVariantMap config = configMap["Magic Card read block"].toMap();
+        QString cmd = config["cmd"].toString();
+        QRegularExpression dataPattern =
+            QRegularExpression(config["data pattern"].toString());
+        cmd.replace("<block>", QString::number(blockId));
+        result = util->execCMDWithOutput(cmd, waitTime);
+        currMatch = dataPattern.match(result);
+        if (currMatch.hasMatch()) {
+            data = currMatch.captured().toUpper();
+            data.remove(" ");
+        } else
+            data = "";
+    } else if (targetType == TARGET_EMULATOR) {
+        QVariantMap config = configMap["emulator read block"].toMap();
+        QString cmd = config["cmd"].toString();
+        QRegularExpression dataPattern =
+            QRegularExpression(config["data pattern"].toString());
+        cmd.replace("<block>", QString::number(blockId));
+        result = util->execCMDWithOutput(cmd, 150);
+        data = dataPattern.match(result).captured().toUpper();
+        data.remove(" ");
+    }
+
+    return data;
 }
 
 QStringList Mifare::_readsec(int sectorId, KeyType keyType, const QString &key,
                              TargetType targetType, int waitTime) {
-  QVariantMap config;
-  QStringList data;
-  QString result, tmp;
-  QRegularExpressionMatch reMatch;
-  int offset = -1; // for targetType == TARGET_EMULATOR
+    QVariantMap config;
+    QStringList data;
+    QString result, tmp;
+    QRegularExpressionMatch reMatch;
+    int offset = -1; // for targetType == TARGET_EMULATOR
 
-  for (int i = 0; i < cardType.blk[sectorId]; i++) {
-    data.append("");
-  }
-
-  // try to read all blocks together
-  if (targetType == TARGET_MIFARE) {
-    if (!data_isKeyValid(key)) {
-      return data;
-    }
-    config = configMap["normal read sector"].toMap();
-    QString cmd = config["cmd"].toString();
-    cmd.replace("<sector>", QString::number(sectorId));
-    cmd.replace("<key type>",
-                config["key type"].toMap()[QString((char)keyType)].toString());
-    cmd.replace("<key>", key);
-    result = util->execCMDWithOutput(cmd, waitTime);
-  } else if (targetType == TARGET_UID) {
-    config = configMap["Magic Card read sector"].toMap();
-    QString cmd = config["cmd"].toString();
-    cmd.replace("<sector>", QString::number(sectorId));
-    result = util->execCMDWithOutput(cmd, waitTime);
-  } else if (targetType == TARGET_EMULATOR) {
-    for (int i = 0; i < cardType.blk[sectorId]; i++)
-      data[i] = _readblk(cardType.blks[sectorId] + i, keyType, key, targetType,
-                         waitTime);
-    return data;
-  }
-
-  // for TARGET_MIFARE and TARGET_UID
-  // if targetType == TARGET_EMULATOR, this function has returned
-  QRegularExpression dataPattern =
-      QRegularExpression(config["data pattern"].toString());
-  reMatch = dataPattern.match(result);
-  offset = reMatch.capturedStart();
-  if (reMatch.hasMatch()) // read successful
-  {
     for (int i = 0; i < cardType.blk[sectorId]; i++) {
-      reMatch = dataPattern.match(result, offset);
-      offset = reMatch.capturedStart();
-      if (reMatch.hasMatch()) {
-        tmp = reMatch.captured().toUpper();
-        offset += tmp.length();
-        tmp.remove(" ");
-        data[i] = tmp;
-      }
+        data.append("");
     }
-  }
-  // when one of the block cannot be read, the rdsc will return nothing, so you
-  // need to read the rest of blocks manually the following rdbl operation is
-  // not handled there, for better speed(rdsc_A->rdsc_B->rdbl0~3)
-  else if (targetType == TARGET_UID) // treat as MIFARE
-    data = _readsec(sectorId, keyType, key, TARGET_MIFARE, waitTime);
 
-  // process trailer(like _readblk())
-  QString trailer = data[cardType.blk[sectorId] - 1];
-  if (trailer != "" && targetType == TARGET_MIFARE) {
-    if (keyType == KEY_A) // in this case, the Access Bits is always accessible
+    // try to read all blocks together
+    if (targetType == TARGET_MIFARE) {
+        if (!data_isKeyValid(key)) {
+            return data;
+        }
+        config = configMap["normal read sector"].toMap();
+        QString cmd = config["cmd"].toString();
+        cmd.replace("<sector>", QString::number(sectorId));
+        cmd.replace("<key type>",
+                    config["key type"].toMap()[QString((char)keyType)].toString());
+        cmd.replace("<key>", key);
+        result = util->execCMDWithOutput(cmd, waitTime);
+    } else if (targetType == TARGET_UID) {
+        config = configMap["Magic Card read sector"].toMap();
+        QString cmd = config["cmd"].toString();
+        cmd.replace("<sector>", QString::number(sectorId));
+        result = util->execCMDWithOutput(cmd, waitTime);
+    } else if (targetType == TARGET_EMULATOR) {
+        for (int i = 0; i < cardType.blk[sectorId]; i++)
+            data[i] = _readblk(cardType.blks[sectorId] + i, keyType, key, targetType,
+                               waitTime);
+        return data;
+    }
+
+    // for TARGET_MIFARE and TARGET_UID
+    // if targetType == TARGET_EMULATOR, this function has returned
+    QRegularExpression dataPattern =
+        QRegularExpression(config["data pattern"].toString());
+    reMatch = dataPattern.match(result);
+    offset = reMatch.capturedStart();
+    if (reMatch.hasMatch()) // read successful
     {
-      trailer.replace(0, 12, key);
-      QList<quint8> ACBits = data_getACBits(trailer.mid(12, 8));
-      if (ACBits[3] == 2 || ACBits[3] == 3 || ACBits[3] == 5 ||
-          ACBits[3] == 6 ||
-          ACBits[3] == 7) // in these cases, the KeyB cannot be read by KeyA
-      {
-        trailer.replace(20, 12, "????????????");
-      }
-    } else if (keyType == KEY_B) {
-      trailer.replace(20, 12, key);
-      ;
-      trailer.replace(0, 12, "????????????"); // fill the keyA part with ?
+        for (int i = 0; i < cardType.blk[sectorId]; i++) {
+            reMatch = dataPattern.match(result, offset);
+            offset = reMatch.capturedStart();
+            if (reMatch.hasMatch()) {
+                tmp = reMatch.captured().toUpper();
+                offset += tmp.length();
+                tmp.remove(" ");
+                data[i] = tmp;
+            }
+        }
     }
-    data[cardType.blk[sectorId] - 1] = trailer;
-  }
+    // when one of the block cannot be read, the rdsc will return nothing, so you
+    // need to read the rest of blocks manually the following rdbl operation is
+    // not handled there, for better speed(rdsc_A->rdsc_B->rdbl0~3)
+    else if (targetType == TARGET_UID) // treat as MIFARE
+        data = _readsec(sectorId, keyType, key, TARGET_MIFARE, waitTime);
 
-  return data;
+    // process trailer(like _readblk())
+    QString trailer = data[cardType.blk[sectorId] - 1];
+    if (trailer != "" && targetType == TARGET_MIFARE) {
+        if (keyType == KEY_A) // in this case, the Access Bits is always accessible
+        {
+            trailer.replace(0, 12, key);
+            QList<quint8> ACBits = data_getACBits(trailer.mid(12, 8));
+            if (ACBits[3] == 2 || ACBits[3] == 3 || ACBits[3] == 5 ||
+                ACBits[3] == 6 ||
+                ACBits[3] == 7) // in these cases, the KeyB cannot be read by KeyA
+            {
+                trailer.replace(20, 12, "????????????");
+            }
+        } else if (keyType == KEY_B) {
+            trailer.replace(20, 12, key);
+            ;
+            trailer.replace(0, 12, "????????????"); // fill the keyA part with ?
+        }
+        data[cardType.blk[sectorId] - 1] = trailer;
+    }
+
+    return data;
 }
 
 void Mifare::readOne(TargetType targetType) {
@@ -688,382 +689,382 @@ void Mifare::readOne(TargetType targetType) {
 }
 
 void Mifare::readSelected(TargetType targetType) {
-  QString trailerA, trailerB;
-  QList<bool> selectedSectors;
-  QList<int> selectedBlocks;
-  for (int i = 0; i < cardType.block_size; i++) {
-    if (ui->MF_dataWidget->item(i, 1)->checkState() == Qt::Checked)
-      selectedBlocks.append(i);
-  }
-
-  for (int i = 0; i < cardType.sector_size; i++) {
-    selectedSectors.append(false);
-  }
-  for (int item : selectedBlocks) {
-    selectedSectors[data_b2s(item)] = true;
-  }
-  // === ✨ 新增：批量读取前密码有效性智能检查 ===
-  if (targetType == TARGET_MIFARE) {
-      int missingKeySectors = 0;
-      for (int i = 0; i < cardType.sector_size; i++) {
-          if (selectedSectors[i]) {
-              // 如果选中的扇区，其 A 密码和 B 密码都无效，说明该扇区必定无法读取
-              if (!data_isKeyValid(keyAList->at(i)) && !data_isKeyValid(keyBList->at(i))) {
-                  missingKeySectors++;
-              }
-          }
-      }
-
-      if (missingKeySectors > 0) {
-          QMessageBox msgBox(parent);
-          msgBox.setWindowTitle(tr("读取提示 (缺少密码)"));
-          msgBox.setIcon(QMessageBox::Warning);
-          msgBox.setText(tr("检测到您勾选的扇区中有 <b>%1</b> 个扇区尚未获取密码（显示为 '?'）。\n\n"
-                            "直接读取会导致这些扇区读取失败！\n\n"
-                            "👉 <b>建议</b>：点击【中止】，先去点击上方的【检查默认密码】。\n"
-                            "👉 <b>强行读取</b>：点击【强行读取】继续执行（无密码的块将被留空）。").arg(missingKeySectors));
-
-          // 添加全中文的自定义按钮
-          QPushButton *abortBtn = msgBox.addButton(tr("中止读取 (Abort)"), QMessageBox::RejectRole);
-          QPushButton *ignoreBtn = msgBox.addButton(tr("强行读取 (Ignore)"), QMessageBox::AcceptRole);
-
-          // 设置默认按钮为安全的中止操作
-          msgBox.setDefaultButton(abortBtn);
-
-          msgBox.exec();
-
-          // 判断用户点击了哪个按钮
-          if (msgBox.clickedButton() == abortBtn) {
-              return; // 听劝，中止读取操作，等待用户去点 chk
-          }
-      }
-  }
-  // ==========================================
-  for (int i = 0; i < cardType.sector_size; i++) {
-    if (!selectedSectors[i])
-      continue;
-
-    QStringList data, dataA, dataB;
-    for (int j = 0; j < cardType.blk[i]; j++) {
-      // dataA is always filled with "" because of the _readsec()
-      data.append("");
-      dataB.append("");
+    QString trailerA, trailerB;
+    QList<bool> selectedSectors;
+    QList<int> selectedBlocks;
+    for (int i = 0; i < cardType.block_size; i++) {
+        if (ui->MF_dataWidget->item(i, 1)->checkState() == Qt::Checked)
+            selectedBlocks.append(i);
     }
 
-    dataA = _readsec(i, Mifare::KEY_A, keyAList->at(i), targetType);
-
-    // in other situations, the key doesn't matters
-    // so the dataA is the final result
-    //
-    // if the targetType is TARGET_MIFARE and the dataA has unknown part, try to
-    // read by keyB
-    if (targetType == TARGET_MIFARE &&
-        (dataA.contains("") ||
-         dataA[cardType.blk[i] - 1].right(12) == "????????????"))
-      dataB = _readsec(i, Mifare::KEY_B, keyBList->at(i), targetType);
-
-    // process trailer block seperately
-    if (dataA[cardType.blk[i] - 1] == "" &&
-        selectedBlocks.contains(getTrailerBlockId(i)))
-      dataA[cardType.blk[i] - 1] = _readblk(getTrailerBlockId(i), Mifare::KEY_A,
-                                            keyAList->at(i), targetType);
-    if (dataB[cardType.blk[i] - 1] == "" &&
-        dataA[cardType.blk[i] - 1].right(12) == "????????????" &&
-        selectedBlocks.contains(getTrailerBlockId(i)))
-      dataB[cardType.blk[i] - 1] = _readblk(getTrailerBlockId(i), Mifare::KEY_B,
-                                            keyBList->at(i), targetType);
-
-    for (int j = 0; j < cardType.blk[i]; j++) {
-      if (dataA[j] != "")
-        data[j] = dataA[j];
-      else
-        data[j] = dataB[j];
-
-      if (data[j] == "" &&
-          selectedBlocks.contains(cardType.blks[i] + j)) // try rdbl seperately
-      {
-        data[j] = _readblk(cardType.blks[i] + j, Mifare::KEY_A, keyAList->at(i),
-                           targetType);
-        if (data[j] == "")
-          data[j] = _readblk(cardType.blks[i] + j, Mifare::KEY_B,
-                             keyBList->at(i), targetType);
-      }
+    for (int i = 0; i < cardType.sector_size; i++) {
+        selectedSectors.append(false);
     }
-
-    // process trailer block seperately
-    trailerA = dataA[cardType.blk[i] - 1];
-    trailerB = dataB[cardType.blk[i] - 1];
-    if (trailerA != "" &&
-        trailerB !=
-            "") // if KeyA and KeyB can both read the trailer, then concat them
-    {
-      QString ACbits = trailerA.mid(12, 8);
-      QString key_A = trailerA.left(12); // KeyA cannot be read by KeyB
-      QString key_B =
-          trailerA.at(31) != '?' ? trailerA.right(12) : trailerB.right(12);
-      data[cardType.blk[i] - 1] = key_A + ACbits + key_B;
+    for (int item : selectedBlocks) {
+        selectedSectors[data_b2s(item)] = true;
     }
+    // === ✨ 新增：批量读取前密码有效性智能检查 ===
+    if (targetType == TARGET_MIFARE) {
+        int missingKeySectors = 0;
+        for (int i = 0; i < cardType.sector_size; i++) {
+            if (selectedSectors[i]) {
+                // 如果选中的扇区，其 A 密码和 B 密码都无效，说明该扇区必定无法读取
+                if (!data_isKeyValid(keyAList->at(i)) && !data_isKeyValid(keyBList->at(i))) {
+                    missingKeySectors++;
+                }
+            }
+        }
 
-    for (int j = 0; j < cardType.blk[i]; j++) {
-      if (selectedBlocks.contains(cardType.blks[i] + j)) {
-        dataList->replace(cardType.blks[i] + j, data[j]);
-        data_syncWithDataWidget(false, cardType.blks[i] + j);
-      }
+        if (missingKeySectors > 0) {
+            QMessageBox msgBox(parent);
+            msgBox.setWindowTitle(tr("读取提示 (缺少密码)"));
+            msgBox.setIcon(QMessageBox::Warning);
+            msgBox.setText(tr("检测到您勾选的扇区中有 <b>%1</b> 个扇区尚未获取密码（显示为 '?'）。\n\n"
+                              "直接读取会导致这些扇区读取失败！\n\n"
+                              "👉 <b>建议</b>：点击【中止】，先去点击上方的【检查默认密码】。\n"
+                              "👉 <b>强行读取</b>：点击【强行读取】继续执行（无密码的块将被留空）。").arg(missingKeySectors));
+
+            // 添加全中文的自定义按钮
+            QPushButton *abortBtn = msgBox.addButton(tr("中止读取 (Abort)"), QMessageBox::RejectRole);
+            QPushButton *ignoreBtn = msgBox.addButton(tr("强行读取 (Ignore)"), QMessageBox::AcceptRole);
+
+            // 设置默认按钮为安全的中止操作
+            msgBox.setDefaultButton(abortBtn);
+
+            msgBox.exec();
+
+            // 判断用户点击了哪个按钮
+            if (msgBox.clickedButton() == abortBtn) {
+                return; // 听劝，中止读取操作，等待用户去点 chk
+            }
+        }
     }
+    // ==========================================
+    for (int i = 0; i < cardType.sector_size; i++) {
+        if (!selectedSectors[i])
+            continue;
 
-    if (selectedBlocks.contains(getTrailerBlockId(i))) {
-      // data widget has been updated, so this is just a temporary varient.
-      if (data[cardType.blk[i] - 1] == "")
-        data[cardType.blk[i] - 1] = "????????????????????????????????";
+        QStringList data, dataA, dataB;
+        for (int j = 0; j < cardType.blk[i]; j++) {
+            // dataA is always filled with "" because of the _readsec()
+            data.append("");
+            dataB.append("");
+        }
 
-      // doesn't replace the existing key.
-      if (!data_isKeyValid(keyAList->at(i)))
-        keyAList->replace(i, data[cardType.blk[i] - 1].left(12));
-      if (!data_isKeyValid(keyBList->at(i)))
-        keyBList->replace(i, data[cardType.blk[i] - 1].right(12));
-      data_syncWithKeyWidget(false, i, KEY_A);
-      data_syncWithKeyWidget(false, i, KEY_B);
+        dataA = _readsec(i, Mifare::KEY_A, keyAList->at(i), targetType);
+
+        // in other situations, the key doesn't matters
+        // so the dataA is the final result
+        //
+        // if the targetType is TARGET_MIFARE and the dataA has unknown part, try to
+        // read by keyB
+        if (targetType == TARGET_MIFARE &&
+            (dataA.contains("") ||
+             dataA[cardType.blk[i] - 1].right(12) == "????????????"))
+            dataB = _readsec(i, Mifare::KEY_B, keyBList->at(i), targetType);
+
+        // process trailer block seperately
+        if (dataA[cardType.blk[i] - 1] == "" &&
+            selectedBlocks.contains(getTrailerBlockId(i)))
+            dataA[cardType.blk[i] - 1] = _readblk(getTrailerBlockId(i), Mifare::KEY_A,
+                                                  keyAList->at(i), targetType);
+        if (dataB[cardType.blk[i] - 1] == "" &&
+            dataA[cardType.blk[i] - 1].right(12) == "????????????" &&
+            selectedBlocks.contains(getTrailerBlockId(i)))
+            dataB[cardType.blk[i] - 1] = _readblk(getTrailerBlockId(i), Mifare::KEY_B,
+                                                  keyBList->at(i), targetType);
+
+        for (int j = 0; j < cardType.blk[i]; j++) {
+            if (dataA[j] != "")
+                data[j] = dataA[j];
+            else
+                data[j] = dataB[j];
+
+            if (data[j] == "" &&
+                selectedBlocks.contains(cardType.blks[i] + j)) // try rdbl seperately
+            {
+                data[j] = _readblk(cardType.blks[i] + j, Mifare::KEY_A, keyAList->at(i),
+                                   targetType);
+                if (data[j] == "")
+                    data[j] = _readblk(cardType.blks[i] + j, Mifare::KEY_B,
+                                       keyBList->at(i), targetType);
+            }
+        }
+
+        // process trailer block seperately
+        trailerA = dataA[cardType.blk[i] - 1];
+        trailerB = dataB[cardType.blk[i] - 1];
+        if (trailerA != "" &&
+            trailerB !=
+                "") // if KeyA and KeyB can both read the trailer, then concat them
+        {
+            QString ACbits = trailerA.mid(12, 8);
+            QString key_A = trailerA.left(12); // KeyA cannot be read by KeyB
+            QString key_B =
+                trailerA.at(31) != '?' ? trailerA.right(12) : trailerB.right(12);
+            data[cardType.blk[i] - 1] = key_A + ACbits + key_B;
+        }
+
+        for (int j = 0; j < cardType.blk[i]; j++) {
+            if (selectedBlocks.contains(cardType.blks[i] + j)) {
+                dataList->replace(cardType.blks[i] + j, data[j]);
+                data_syncWithDataWidget(false, cardType.blks[i] + j);
+            }
+        }
+
+        if (selectedBlocks.contains(getTrailerBlockId(i))) {
+            // data widget has been updated, so this is just a temporary varient.
+            if (data[cardType.blk[i] - 1] == "")
+                data[cardType.blk[i] - 1] = "????????????????????????????????";
+
+            // doesn't replace the existing key.
+            if (!data_isKeyValid(keyAList->at(i)))
+                keyAList->replace(i, data[cardType.blk[i] - 1].left(12));
+            if (!data_isKeyValid(keyBList->at(i)))
+                keyBList->replace(i, data[cardType.blk[i] - 1].right(12));
+            data_syncWithKeyWidget(false, i, KEY_A);
+            data_syncWithKeyWidget(false, i, KEY_B);
+        }
     }
-  }
 }
 
 bool Mifare::_writeblk(int blockId, KeyType keyType, const QString &key,
                        const QString &data, TargetType targetType,
                        int waitTime) {
-  QString result;
-  QString input = data.toUpper();
+    QString result;
+    QString input = data.toUpper();
 
-  input.remove(" ");
-  if (data_isDataValid(input) != DATA_NOSPACE)
+    input.remove(" ");
+    if (data_isDataValid(input) != DATA_NOSPACE)
+        return false;
+
+    if (targetType == TARGET_MIFARE) {
+        if (!data_isKeyValid(key))
+            return false;
+        QVariantMap config = configMap["normal write block"].toMap();
+        QString cmd = config["cmd"].toString();
+        cmd.replace("<block>", QString::number(blockId));
+        cmd.replace("<key type>",
+                    config["key type"].toMap()[QString((char)keyType)].toString());
+        cmd.replace("<key>", key);
+        cmd.replace("<data>", input);
+        result = util->execCMDWithOutput(cmd, waitTime);
+        if (result.isEmpty())
+            return false;
+
+        QVariantList failedFlag =
+            config["failed flag"].toJsonArray().toVariantList();
+        for (auto flag = failedFlag.begin(); flag != failedFlag.end(); flag++) {
+            if (result.contains(flag->toString()))
+                return false;
+        }
+        return true;
+    } else if (targetType == TARGET_UID) {
+        QVariantMap config = configMap["Magic Card write block"].toMap();
+        QString cmd = config["cmd"].toString();
+        cmd.replace("<block>", QString::number(blockId));
+        cmd.replace("<data>", input);
+        result = util->execCMDWithOutput(cmd, waitTime);
+        if (result.isEmpty())
+            return false;
+
+        QVariantList failedFlag =
+            config["failed flag"].toJsonArray().toVariantList();
+        for (auto flag = failedFlag.begin(); flag != failedFlag.end(); flag++) {
+            if (result.contains(flag->toString()))
+                return false;
+        }
+        return true;
+    } else if (targetType == TARGET_EMULATOR) {
+        QVariantMap config = configMap["emulator write block"].toMap();
+        QString cmd = config["cmd"].toString();
+        cmd.replace("<block>", QString::number(blockId));
+        cmd.replace("<data>", input);
+        util->execCMD(cmd);
+        util->delay(5);
+        return true;
+    }
+
     return false;
-
-  if (targetType == TARGET_MIFARE) {
-    if (!data_isKeyValid(key))
-      return false;
-    QVariantMap config = configMap["normal write block"].toMap();
-    QString cmd = config["cmd"].toString();
-    cmd.replace("<block>", QString::number(blockId));
-    cmd.replace("<key type>",
-                config["key type"].toMap()[QString((char)keyType)].toString());
-    cmd.replace("<key>", key);
-    cmd.replace("<data>", input);
-    result = util->execCMDWithOutput(cmd, waitTime);
-    if (result.isEmpty())
-      return false;
-
-    QVariantList failedFlag =
-        config["failed flag"].toJsonArray().toVariantList();
-    for (auto flag = failedFlag.begin(); flag != failedFlag.end(); flag++) {
-      if (result.contains(flag->toString()))
-        return false;
-    }
-    return true;
-  } else if (targetType == TARGET_UID) {
-    QVariantMap config = configMap["Magic Card write block"].toMap();
-    QString cmd = config["cmd"].toString();
-    cmd.replace("<block>", QString::number(blockId));
-    cmd.replace("<data>", input);
-    result = util->execCMDWithOutput(cmd, waitTime);
-    if (result.isEmpty())
-      return false;
-
-    QVariantList failedFlag =
-        config["failed flag"].toJsonArray().toVariantList();
-    for (auto flag = failedFlag.begin(); flag != failedFlag.end(); flag++) {
-      if (result.contains(flag->toString()))
-        return false;
-    }
-    return true;
-  } else if (targetType == TARGET_EMULATOR) {
-    QVariantMap config = configMap["emulator write block"].toMap();
-    QString cmd = config["cmd"].toString();
-    cmd.replace("<block>", QString::number(blockId));
-    cmd.replace("<data>", input);
-    util->execCMD(cmd);
-    util->delay(5);
-    return true;
-  }
-
-  return false;
 }
 
 void Mifare::writeOne(TargetType targetType) {
-  int blockId = ui->MF_RW_blockBox->currentText().toInt();
-  Mifare::KeyType keyType =
-      (Mifare::KeyType)(ui->MF_RW_keyTypeBox->currentData().toInt());
-  bool isSuccessful =
-      _writeblk(blockId, keyType, ui->MF_RW_keyEdit->text().toUpper(),
-                ui->MF_RW_dataEdit->text(), targetType);
-  if (isSuccessful) {
-    QMessageBox::information(parent, tr("Info"), tr("Succeed!"));
-  } else {
-    QMessageBox::information(parent, tr("Info"), tr("Failed!"));
-  }
+    int blockId = ui->MF_RW_blockBox->currentText().toInt();
+    Mifare::KeyType keyType =
+        (Mifare::KeyType)(ui->MF_RW_keyTypeBox->currentData().toInt());
+    bool isSuccessful =
+        _writeblk(blockId, keyType, ui->MF_RW_keyEdit->text().toUpper(),
+                  ui->MF_RW_dataEdit->text(), targetType);
+    if (isSuccessful) {
+        QMessageBox::information(parent, tr("Info"), tr("Succeed!"));
+    } else {
+        QMessageBox::information(parent, tr("Info"), tr("Failed!"));
+    }
 }
 
 void Mifare::writeSelected(TargetType targetType) {
-  QList<int> failedBlocks;
-  QList<int> selectedBlocks;
-  bool yes2All = false, no2All = false;
+    QList<int> failedBlocks;
+    QList<int> selectedBlocks;
+    bool yes2All = false, no2All = false;
 
-  for (int i = 0; i < cardType.block_size; i++) {
-    if (ui->MF_dataWidget->item(i, 1)->checkState() == Qt::Checked)
-      selectedBlocks.append(i);
-  }
-  // ==========================================
-  // ✨ 修改：柔性数据有效性拦截 (给用户自主选择权)
-  // ==========================================
-  int emptyOrInvalidCount = 0;
-  QList<int> validBlocks; // 暂存有效块
+    for (int i = 0; i < cardType.block_size; i++) {
+        if (ui->MF_dataWidget->item(i, 1)->checkState() == Qt::Checked)
+            selectedBlocks.append(i);
+    }
+    // ==========================================
+    // ✨ 修改：柔性数据有效性拦截 (给用户自主选择权)
+    // ==========================================
+    int emptyOrInvalidCount = 0;
+    QList<int> validBlocks; // 暂存有效块
 
-  for (int item : selectedBlocks) {
-      QString blockData = dataList->at(item);
-      blockData.remove(" ");
-      blockData = blockData.toUpper();
+    for (int item : selectedBlocks) {
+        QString blockData = dataList->at(item);
+        blockData.remove(" ");
+        blockData = blockData.toUpper();
 
-      if (blockData.isEmpty() || blockData.length() != 32 || blockData.contains("?")) {
-          emptyOrInvalidCount++;
-      } else {
-          validBlocks.append(item);
-      }
-  }
+        if (blockData.isEmpty() || blockData.length() != 32 || blockData.contains("?")) {
+            emptyOrInvalidCount++;
+        } else {
+            validBlocks.append(item);
+        }
+    }
 
-  if (emptyOrInvalidCount > 0) {
-      QMessageBox msgBox(parent);
-      msgBox.setWindowTitle(tr("空数据/无效数据警告"));
-      msgBox.setIcon(QMessageBox::Warning);
-      msgBox.setText(tr("<html>检测到您勾选的待写块中，有 <b>%1</b> 个块的数据为空或包含无效字符('?')。<br><br>"
-                        "盲目写入空数据极可能导致卡片对应扇区变砖损坏。<br><br>"
-                        "👉 <b>推荐操作：</b>跳过这些空块，仅写入正常的块。<br>"
-                        "👉 <b>高风险操作：</b>强行将空数据发送给读卡器。</html>").arg(emptyOrInvalidCount));
+    if (emptyOrInvalidCount > 0) {
+        QMessageBox msgBox(parent);
+        msgBox.setWindowTitle(tr("空数据/无效数据警告"));
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setText(tr("<html>检测到您勾选的待写块中，有 <b>%1</b> 个块的数据为空或包含无效字符('?')。<br><br>"
+                          "盲目写入空数据极可能导致卡片对应扇区变砖损坏。<br><br>"
+                          "👉 <b>推荐操作：</b>跳过这些空块，仅写入正常的块。<br>"
+                          "👉 <b>高风险操作：</b>强行将空数据发送给读卡器。</html>").arg(emptyOrInvalidCount));
 
-      // 提供三个按钮选项
-      QPushButton *skipBtn = msgBox.addButton(tr("跳过空块并继续 (推荐)"), QMessageBox::AcceptRole);
-      QPushButton *forceBtn = msgBox.addButton(tr("强行全部写入"), QMessageBox::DestructiveRole);
-      QPushButton *cancelBtn = msgBox.addButton(tr("取消写入"), QMessageBox::RejectRole);
+        // 提供三个按钮选项
+        QPushButton *skipBtn = msgBox.addButton(tr("跳过空块并继续 (推荐)"), QMessageBox::AcceptRole);
+        QPushButton *forceBtn = msgBox.addButton(tr("强行全部写入"), QMessageBox::DestructiveRole);
+        QPushButton *cancelBtn = msgBox.addButton(tr("取消写入"), QMessageBox::RejectRole);
 
-      msgBox.setDefaultButton(skipBtn); // 默认推荐安全做法防误触
+        msgBox.setDefaultButton(skipBtn); // 默认推荐安全做法防误触
 
-      msgBox.exec();
+        msgBox.exec();
 
-      if (msgBox.clickedButton() == cancelBtn) {
-          return; // 用户点击取消，结束
-      } else if (msgBox.clickedButton() == skipBtn) {
-          selectedBlocks = validBlocks; // 核心：替换为只包含有效块的列表
-          if (selectedBlocks.isEmpty()) {
-              QMessageBox::information(parent, tr("提示"), tr("跳过空数据后，没有剩余有效的块可供写入，操作已取消。"));
-              return;
-          }
-      }
-      // 如果点的是 forceBtn (强行写入)，则原样保留 selectedBlocks，继续往下执行
-  }
+        if (msgBox.clickedButton() == cancelBtn) {
+            return; // 用户点击取消，结束
+        } else if (msgBox.clickedButton() == skipBtn) {
+            selectedBlocks = validBlocks; // 核心：替换为只包含有效块的列表
+            if (selectedBlocks.isEmpty()) {
+                QMessageBox::information(parent, tr("提示"), tr("跳过空数据后，没有剩余有效的块可供写入，操作已取消。"));
+                return;
+            }
+        }
+        // 如果点的是 forceBtn (强行写入)，则原样保留 selectedBlocks，继续往下执行
+    }
     Util::gotoRawTab(); // <--- 新增：拦截器通过后，立刻切到控制台
-  // =======================================================
-  for (int item : selectedBlocks) {
-    bool result = false;
-    bool isTrailerBlock =
-        (item < 128 && ((item + 1) % 4 == 0)) || ((item + 1) % 16 == 0);
+    // =======================================================
+    for (int item : selectedBlocks) {
+        bool result = false;
+        bool isTrailerBlock =
+            (item < 128 && ((item + 1) % 4 == 0)) || ((item + 1) % 16 == 0);
 
-    if (isTrailerBlock && !data_isACBitsValid(dataList->at(item).mid(12, 8))) // trailer block is invalid
-    {
-        if (!yes2All && !no2All) {
-            QMessageBox msgBox(parent);
-            msgBox.setWindowTitle(tr("危险警告 (非法控制位)"));
-            msgBox.setIcon(QMessageBox::Critical); // 使用红色的叉叉图标，更醒目
-            msgBox.setText(tr("当前密码块的控制位 (Access Bits) 非法！\n"
-                              "强行写入极有可能导致该扇区永久锁死（报废）。\n\n"
-                              "是否继续强行写入？"));
+        if (isTrailerBlock && !data_isACBitsValid(dataList->at(item).mid(12, 8))) // trailer block is invalid
+        {
+            if (!yes2All && !no2All) {
+                QMessageBox msgBox(parent);
+                msgBox.setWindowTitle(tr("危险警告 (非法控制位)"));
+                msgBox.setIcon(QMessageBox::Critical); // 使用红色的叉叉图标，更醒目
+                msgBox.setText(tr("当前密码块的控制位 (Access Bits) 非法！\n"
+                                  "强行写入极有可能导致该扇区永久锁死（报废）。\n\n"
+                                  "是否继续强行写入？"));
 
-            // 自定义全中文按钮
-            QPushButton *yesBtn = msgBox.addButton(tr("继续写入"), QMessageBox::AcceptRole);
-            QPushButton *yesToAllBtn = msgBox.addButton(tr("全部强写 (Yes to All)"), QMessageBox::AcceptRole);
-            QPushButton *noBtn = msgBox.addButton(tr("跳过此块"), QMessageBox::RejectRole);
-            QPushButton *noToAllBtn = msgBox.addButton(tr("全部跳过 (No to All)"), QMessageBox::RejectRole);
+                // 自定义全中文按钮
+                QPushButton *yesBtn = msgBox.addButton(tr("继续写入"), QMessageBox::AcceptRole);
+                QPushButton *yesToAllBtn = msgBox.addButton(tr("全部强写 (Yes to All)"), QMessageBox::AcceptRole);
+                QPushButton *noBtn = msgBox.addButton(tr("跳过此块"), QMessageBox::RejectRole);
+                QPushButton *noToAllBtn = msgBox.addButton(tr("全部跳过 (No to All)"), QMessageBox::RejectRole);
 
-            // 安全起见，把默认高亮的焦点放在“跳过”上
-            msgBox.setDefaultButton(noBtn);
-            msgBox.exec();
+                // 安全起见，把默认高亮的焦点放在“跳过”上
+                msgBox.setDefaultButton(noBtn);
+                msgBox.exec();
 
-            // 判断点击结果
-            if (msgBox.clickedButton() == noBtn) {
-                continue;
-            } else if (msgBox.clickedButton() == yesToAllBtn) {
-                yes2All = true;
-            } else if (msgBox.clickedButton() == noToAllBtn) {
-                no2All = true;
+                // 判断点击结果
+                if (msgBox.clickedButton() == noBtn) {
+                    continue;
+                } else if (msgBox.clickedButton() == yesToAllBtn) {
+                    yes2All = true;
+                } else if (msgBox.clickedButton() == noToAllBtn) {
+                    no2All = true;
+                    continue;
+                }
+                // 如果点的是 yesBtn (继续写入)，则什么都不做，让代码继续往下执行即可
+
+            } else if (no2All) {
                 continue;
             }
-            // 如果点的是 yesBtn (继续写入)，则什么都不做，让代码继续往下执行即可
+        }
 
-        } else if (no2All) {
-            continue;
+        if (targetType == TARGET_MIFARE) {
+            result = _writeblk(item, KEY_A, keyAList->at(data_b2s(item)),
+                               dataList->at(item), TARGET_MIFARE);
+            if (!result) {
+                result = _writeblk(item, KEY_B, keyBList->at(data_b2s(item)),
+                                   dataList->at(item), TARGET_MIFARE);
+            }
+            if (!result && keyAList->at(data_b2s(item)) != "FFFFFFFFFFFF") {
+                result = _writeblk(item, KEY_A, "FFFFFFFFFFFF", dataList->at(item),
+                                   TARGET_MIFARE);
+            }
+            if (!result && keyBList->at(data_b2s(item)) !=
+                               "FFFFFFFFFFFF") // for access bits like "80 f7 87", the
+            // block can only be written with keyB
+            {
+                result = _writeblk(item, KEY_B, "FFFFFFFFFFFF", dataList->at(item),
+                                   TARGET_MIFARE);
+            }
+        } else // key doesn't matter when writing to Chinese Magic Card and Emulator
+        // Memory
+        {
+            result = _writeblk(item, KEY_A, "FFFFFFFFFFFF", dataList->at(item),
+                               targetType);
+        }
+        if (!result) {
+            failedBlocks.append(item);
         }
     }
-
-    if (targetType == TARGET_MIFARE) {
-      result = _writeblk(item, KEY_A, keyAList->at(data_b2s(item)),
-                         dataList->at(item), TARGET_MIFARE);
-      if (!result) {
-        result = _writeblk(item, KEY_B, keyBList->at(data_b2s(item)),
-                           dataList->at(item), TARGET_MIFARE);
-      }
-      if (!result && keyAList->at(data_b2s(item)) != "FFFFFFFFFFFF") {
-        result = _writeblk(item, KEY_A, "FFFFFFFFFFFF", dataList->at(item),
-                           TARGET_MIFARE);
-      }
-      if (!result && keyBList->at(data_b2s(item)) !=
-                         "FFFFFFFFFFFF") // for access bits like "80 f7 87", the
-                                         // block can only be written with keyB
-      {
-        result = _writeblk(item, KEY_B, "FFFFFFFFFFFF", dataList->at(item),
-                           TARGET_MIFARE);
-      }
-    } else // key doesn't matter when writing to Chinese Magic Card and Emulator
-           // Memory
-    {
-      result = _writeblk(item, KEY_A, "FFFFFFFFFFFF", dataList->at(item),
-                         targetType);
-    }
-    if (!result) {
-      failedBlocks.append(item);
-    }
-  }
-  if (failedBlocks.size() == 0)
-    QMessageBox::information(parent, tr("Info"), tr("Succeed!"));
-  else {
-    QString suffix = "";
-    int counter = 0;
-    for (int failedBlk : failedBlocks) {
-      suffix += QString::number(failedBlk) + " ";
-      counter++;
-      counter %= 20;
-      if (counter == 0)
-        suffix += "\n";
-    }
-    // 构建自定义弹窗
-    QMessageBox msgBox(parent);
-    msgBox.setWindowTitle(tr("部分写入失败"));
-    msgBox.setIcon(QMessageBox::Warning);
-    msgBox.setText(tr("以下数据块写入失败：\n\n") + suffix + tr("\n\n是否在左侧列表中自动勾选这些失败的块，以便重试？"));
-
-    // 自定义中文按钮
-    QPushButton *yesBtn = msgBox.addButton(tr("勾选失败块 (Yes)"), QMessageBox::AcceptRole);
-    QPushButton *noBtn = msgBox.addButton(tr("保持原样 (No)"), QMessageBox::RejectRole);
-
-    msgBox.setDefaultButton(yesBtn); // 默认选Yes，因为通常失败了都需要重试
-    msgBox.exec();
-
-    if (msgBox.clickedButton() == yesBtn) {
-        // 先把所有选中的取消勾选
-        for (int item : selectedBlocks) {
-            ui->MF_dataWidget->item(item, 1)->setCheckState(Qt::Unchecked);
-        }
-        // 再把失败的块勾上
+    if (failedBlocks.size() == 0)
+        QMessageBox::information(parent, tr("Info"), tr("Succeed!"));
+    else {
+        QString suffix = "";
+        int counter = 0;
         for (int failedBlk : failedBlocks) {
-            ui->MF_dataWidget->item(failedBlk, 1)->setCheckState(Qt::Checked);
+            suffix += QString::number(failedBlk) + " ";
+            counter++;
+            counter %= 20;
+            if (counter == 0)
+                suffix += "\n";
+        }
+        // 构建自定义弹窗
+        QMessageBox msgBox(parent);
+        msgBox.setWindowTitle(tr("部分写入失败"));
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.setText(tr("以下数据块写入失败：\n\n") + suffix + tr("\n\n是否在左侧列表中自动勾选这些失败的块，以便重试？"));
+
+        // 自定义中文按钮
+        QPushButton *yesBtn = msgBox.addButton(tr("勾选失败块 (Yes)"), QMessageBox::AcceptRole);
+        QPushButton *noBtn = msgBox.addButton(tr("保持原样 (No)"), QMessageBox::RejectRole);
+
+        msgBox.setDefaultButton(yesBtn); // 默认选Yes，因为通常失败了都需要重试
+        msgBox.exec();
+
+        if (msgBox.clickedButton() == yesBtn) {
+            // 先把所有选中的取消勾选
+            for (int item : selectedBlocks) {
+                ui->MF_dataWidget->item(item, 1)->setCheckState(Qt::Unchecked);
+            }
+            // 再把失败的块勾上
+            for (int failedBlk : failedBlocks) {
+                ui->MF_dataWidget->item(failedBlk, 1)->setCheckState(Qt::Checked);
+            }
         }
     }
-  }
 }
 
 void Mifare::dump(const QString &keyFilename) {
@@ -1116,29 +1117,29 @@ void Mifare::restore(const QString &dumpFilename, const QString &keyFilename, bo
 }
 
 void Mifare::wipeC() {
-  QVariantMap config = configMap["Magic Card wipe"].toMap();
-  QString cmd = config["cmd"].toString();
-  if (cmd.contains("<card type>"))
-    cmd.replace("<card type>",
-                config["card type"].toMap()[cardType.typeText].toString());
-  util->execCMD(cmd);
-  Util::gotoRawTab();
+    QVariantMap config = configMap["Magic Card wipe"].toMap();
+    QString cmd = config["cmd"].toString();
+    if (cmd.contains("<card type>"))
+        cmd.replace("<card type>",
+                    config["card type"].toMap()[cardType.typeText].toString());
+    util->execCMD(cmd);
+    Util::gotoRawTab();
 }
 
 void Mifare::setParameterC() {
-  QVariantMap config = configMap["Magic Card set parameter"].toMap();
-  QMap<QString, QString> result = info(true);
-  if (result.isEmpty()) {
-    QMessageBox::information(parent, tr("Info"), tr("Failed to read card."));
-    return;
-  } else {
-    MF_UID_parameterDialog dialog(result["UID"].toUpper(),
-                                  result["ATQA"].toUpper(),
-                                  result["SAK"].toUpper(), config);
-    connect(&dialog, &MF_UID_parameterDialog::sendCMD, util, &Util::execCMD);
-    if (dialog.exec() == QDialog::Accepted)
-      Util::gotoRawTab();
-  }
+    QVariantMap config = configMap["Magic Card set parameter"].toMap();
+    QMap<QString, QString> result = info(true);
+    if (result.isEmpty()) {
+        QMessageBox::information(parent, tr("Info"), tr("Failed to read card."));
+        return;
+    } else {
+        MF_UID_parameterDialog dialog(result["UID"].toUpper(),
+                                      result["ATQA"].toUpper(),
+                                      result["SAK"].toUpper(), config);
+        connect(&dialog, &MF_UID_parameterDialog::sendCMD, util, &Util::execCMD);
+        if (dialog.exec() == QDialog::Accepted)
+            Util::gotoRawTab();
+    }
 }
 
 void Mifare::lockC() {
@@ -1169,239 +1170,239 @@ void Mifare::lockC() {
 }
 
 void Mifare::wipeE() {
-  QVariantMap config = configMap["emulator wipe"].toMap();
-  util->execCMD(config["cmd"].toString());
+    QVariantMap config = configMap["emulator wipe"].toMap();
+    util->execCMD(config["cmd"].toString());
 }
 
 void Mifare::simulate() {
-  MF_Sim_simDialog dialog(cardType.type, cardType.typeText);
-  connect(&dialog, &MF_Sim_simDialog::sendCMD, util, &Util::execCMD);
-  if (dialog.exec() == QDialog::Accepted)
-    Util::gotoRawTab();
+    MF_Sim_simDialog dialog(cardType.type, cardType.typeText);
+    connect(&dialog, &MF_Sim_simDialog::sendCMD, util, &Util::execCMD);
+    if (dialog.exec() == QDialog::Accepted)
+        Util::gotoRawTab();
 }
 
 void Mifare::loadSniff(const QString &file) {
-  QVariantMap config = configMap["load sniff"].toMap();
-  QString cmd = config["cmd"].toString();
-  cmd.replace("<filename>", file);
-  if (config.contains("show cmd")) {
-    if (util->execCMDWithOutput(cmd, Util::ReturnTrigger({"loaded"})) != "")
-      util->execCMD(config["show cmd"].toString());
-  } else {
-    util->execCMD(cmd);
-  }
+    QVariantMap config = configMap["load sniff"].toMap();
+    QString cmd = config["cmd"].toString();
+    cmd.replace("<filename>", file);
+    if (config.contains("show cmd")) {
+        if (util->execCMDWithOutput(cmd, Util::ReturnTrigger({"loaded"})) != "")
+            util->execCMD(config["show cmd"].toString());
+    } else {
+        util->execCMD(cmd);
+    }
 
-  Util::gotoRawTab();
+    Util::gotoRawTab();
 }
 
 void Mifare::saveSniff(const QString &file) {
-  QVariantMap config = configMap["save sniff"].toMap();
-  QString cmd = config["cmd"].toString();
-  cmd.replace("<filename>", file);
-  util->execCMD(cmd);
+    QVariantMap config = configMap["save sniff"].toMap();
+    QString cmd = config["cmd"].toString();
+    cmd.replace("<filename>", file);
+    util->execCMD(cmd);
 
-  Util::gotoRawTab();
+    Util::gotoRawTab();
 }
 
 void Mifare::data_syncWithDataWidget(bool syncAll, int block) {
-  ui->MF_dataWidget->blockSignals(true);
-  QString tmp;
-  if (syncAll) {
-    for (int i = 0; i < cardType.block_size; i++) {
-      tmp = "";
-      if (dataList->at(i) != "") {
-        tmp += dataList->at(i).midRef(0, 2);
-        for (int j = 1; j < 16; j++) {
-          tmp += " ";
-          tmp += dataList->at(i).midRef(j * 2, 2);
+    ui->MF_dataWidget->blockSignals(true);
+    QString tmp;
+    if (syncAll) {
+        for (int i = 0; i < cardType.block_size; i++) {
+            tmp = "";
+            if (dataList->at(i) != "") {
+                tmp += dataList->at(i).midRef(0, 2);
+                for (int j = 1; j < 16; j++) {
+                    tmp += " ";
+                    tmp += dataList->at(i).midRef(j * 2, 2);
+                }
+            }
+            ui->MF_dataWidget->item(i, 2)->setText(tmp);
         }
-      }
-      ui->MF_dataWidget->item(i, 2)->setText(tmp);
+    } else {
+        tmp = "";
+        if (dataList->at(block) != "") {
+            tmp += dataList->at(block).midRef(0, 2);
+            for (int j = 1; j < 16; j++) {
+                tmp += " ";
+                tmp += dataList->at(block).midRef(j * 2, 2);
+            }
+        }
+        ui->MF_dataWidget->item(block, 2)->setText(tmp);
     }
-  } else {
-    tmp = "";
-    if (dataList->at(block) != "") {
-      tmp += dataList->at(block).midRef(0, 2);
-      for (int j = 1; j < 16; j++) {
-        tmp += " ";
-        tmp += dataList->at(block).midRef(j * 2, 2);
-      }
-    }
-    ui->MF_dataWidget->item(block, 2)->setText(tmp);
-  }
-  ui->MF_dataWidget->blockSignals(false);
+    ui->MF_dataWidget->blockSignals(false);
 }
 
 void Mifare::data_syncWithKeyWidget(bool syncAll, int sector, KeyType keyType) {
-  ui->MF_keyWidget->blockSignals(true);
-  if (syncAll) {
-    for (int i = 0; i < cardType.sector_size; i++) {
-      ui->MF_keyWidget->item(i, 1)->setText(keyAList->at(i));
-      ui->MF_keyWidget->item(i, 2)->setText(keyBList->at(i));
+    ui->MF_keyWidget->blockSignals(true);
+    if (syncAll) {
+        for (int i = 0; i < cardType.sector_size; i++) {
+            ui->MF_keyWidget->item(i, 1)->setText(keyAList->at(i));
+            ui->MF_keyWidget->item(i, 2)->setText(keyBList->at(i));
+        }
+    } else {
+        if (keyType == KEY_A)
+            ui->MF_keyWidget->item(sector, 1)->setText(keyAList->at(sector));
+        else
+            ui->MF_keyWidget->item(sector, 2)->setText(keyBList->at(sector));
     }
-  } else {
-    if (keyType == KEY_A)
-      ui->MF_keyWidget->item(sector, 1)->setText(keyAList->at(sector));
-    else
-      ui->MF_keyWidget->item(sector, 2)->setText(keyBList->at(sector));
-  }
-  ui->MF_keyWidget->blockSignals(false);
+    ui->MF_keyWidget->blockSignals(false);
 }
 
 void Mifare::data_clearData(bool clearAll) {
-  if (clearAll) {
-    dataList->clear();
-  }
+    if (clearAll) {
+        dataList->clear();
+    }
 
-  int delta = cardType.block_size - dataList->length();
-  if (delta >= 0) {
-    for (int i = 0; i < delta; i++)
-      dataList->append("");
-  } else if (delta < 0) {
-    for (int i = 0; i < -delta; i++)
+    int delta = cardType.block_size - dataList->length();
+    if (delta >= 0) {
+        for (int i = 0; i < delta; i++)
+            dataList->append("");
+    } else if (delta < 0) {
+        for (int i = 0; i < -delta; i++)
 
-      dataList->removeLast();
-  }
+            dataList->removeLast();
+    }
 }
 
 void Mifare::data_clearKey(bool clearAll) {
-  if (clearAll) {
-    keyAList->clear();
-    keyBList->clear();
-  }
+    if (clearAll) {
+        keyAList->clear();
+        keyBList->clear();
+    }
 
-  int delta = cardType.sector_size - keyAList->length();
-  if (delta >= 0) {
-    for (int i = 0; i < delta; i++) {
-      keyAList->append("");
-      keyBList->append("");
+    int delta = cardType.sector_size - keyAList->length();
+    if (delta >= 0) {
+        for (int i = 0; i < delta; i++) {
+            keyAList->append("");
+            keyBList->append("");
+        }
+    } else if (delta < 0) {
+        for (int i = 0; i < -delta; i++) {
+            keyAList->removeLast();
+            keyBList->removeLast();
+        }
     }
-  } else if (delta < 0) {
-    for (int i = 0; i < -delta; i++) {
-      keyAList->removeLast();
-      keyBList->removeLast();
-    }
-  }
 }
 
 bool Mifare::data_isKeyValid(const QString &key) {
-  if (key.length() != 12)
-    return false;
-  for (int i = 0; i < 12; i++) {
-    if (!((key[i] >= '0' && key[i] <= '9') || (key[i] >= 'A' && key[i] <= 'F')))
-      return false;
-  }
-  return true;
+    if (key.length() != 12)
+        return false;
+    for (int i = 0; i < 12; i++) {
+        if (!((key[i] >= '0' && key[i] <= '9') || (key[i] >= 'A' && key[i] <= 'F')))
+            return false;
+    }
+    return true;
 }
 
 Mifare::DataType Mifare::data_isDataValid(
     const QString &data) // "?" will not been processd there
 {
-  if (data.length() == 47) {
-    for (int i = 0; i < 47; i++) {
-      if (i % 3 != 0) {
-        if (!((data[i] >= '0' && data[i] <= '9') ||
-              (data[i] >= 'A' && data[i] <= 'F') || data[i] == '?'))
-          return DATA_INVALID;
-      } else {
-        if (data[i] != ' ')
-          return DATA_INVALID;
-      }
-    }
-    return DATA_WITHSPACE;
-  } else if (data.length() == 32) {
-    for (int i = 0; i < 32; i++) {
-      if (!((data[i] >= '0' && data[i] <= '9') ||
-            (data[i] >= 'A' && data[i] <= 'F') || data[i] == '?'))
+    if (data.length() == 47) {
+        for (int i = 0; i < 47; i++) {
+            if (i % 3 != 0) {
+                if (!((data[i] >= '0' && data[i] <= '9') ||
+                      (data[i] >= 'A' && data[i] <= 'F') || data[i] == '?'))
+                    return DATA_INVALID;
+            } else {
+                if (data[i] != ' ')
+                    return DATA_INVALID;
+            }
+        }
+        return DATA_WITHSPACE;
+    } else if (data.length() == 32) {
+        for (int i = 0; i < 32; i++) {
+            if (!((data[i] >= '0' && data[i] <= '9') ||
+                  (data[i] >= 'A' && data[i] <= 'F') || data[i] == '?'))
+                return DATA_INVALID;
+        }
+        return DATA_NOSPACE;
+    } else
         return DATA_INVALID;
-    }
-    return DATA_NOSPACE;
-  } else
-    return DATA_INVALID;
 }
 
 Mifare::CardType Mifare::getCardType() { return cardType; }
 
 void Mifare::setCardType(int type) {
-  if (type == 0 || type == 1 || type == 2 || type == 4) {
-    if (type == 0)
-      cardType = card_mini;
-    else if (type == 1)
-      cardType = card_1k;
-    else if (type == 2)
-      cardType = card_2k;
-    else if (type == 4)
-      cardType = card_4k;
-    data_clearKey(false);
-    data_clearData(false);
-  }
+    if (type == 0 || type == 1 || type == 2 || type == 4) {
+        if (type == 0)
+            cardType = card_mini;
+        else if (type == 1)
+            cardType = card_1k;
+        else if (type == 2)
+            cardType = card_2k;
+        else if (type == 4)
+            cardType = card_4k;
+        data_clearKey(false);
+        data_clearData(false);
+    }
 }
 
 bool Mifare::data_loadDataFile(const QString &filename) {
-  QFile file(filename, this);
-  if (file.open(QIODevice::ReadOnly)) {
-    QByteArray buff;
-    buff = file.read(10000);
-    bool isBin = false;
-    for (int i = 0; i < cardType.block_size * 16; i++) // Detect the file type
-    {
-      //                qDebug() << (unsigned char)buff[i];
-      if (!((buff[i] >= 'A' && buff[i] <= 'F') ||
-            (buff[i] >= 'a' && buff[i] <= 'f') ||
-            (buff[i] >= '0' && buff[i] <= '9') || buff[i] == '\n' ||
-            buff[i] == '\r')) {
-        isBin = true;
-        break;
-      }
-    }
-    if (isBin) {
-      if (file.size() < cardType.block_size * 16)
-        return false;
-      for (int i = 0; i < cardType.block_size; i++) {
-        QString tmp = bin2text(buff, i, 16);
-        dataList->replace(i, tmp.toUpper());
-      }
-    } else {
-      QString tmp = buff.left(cardType.block_size * 34);
-      QStringList tmpList = tmp.split("\n");
-      for (int i = 0; i < cardType.block_size; i++) {
-        dataList->replace(i, tmpList[i].toUpper());
-        qDebug() << tmpList[i];
-      }
-    }
-    file.close();
+    QFile file(filename, this);
+    if (file.open(QIODevice::ReadOnly)) {
+        QByteArray buff;
+        buff = file.read(10000);
+        bool isBin = false;
+        for (int i = 0; i < cardType.block_size * 16; i++) // Detect the file type
+        {
+            //                qDebug() << (unsigned char)buff[i];
+            if (!((buff[i] >= 'A' && buff[i] <= 'F') ||
+                  (buff[i] >= 'a' && buff[i] <= 'f') ||
+                  (buff[i] >= '0' && buff[i] <= '9') || buff[i] == '\n' ||
+                  buff[i] == '\r')) {
+                isBin = true;
+                break;
+            }
+        }
+        if (isBin) {
+            if (file.size() < cardType.block_size * 16)
+                return false;
+            for (int i = 0; i < cardType.block_size; i++) {
+                QString tmp = bin2text(buff, i, 16);
+                dataList->replace(i, tmp.toUpper());
+            }
+        } else {
+            QString tmp = buff.left(cardType.block_size * 34);
+            QStringList tmpList = tmp.split("\n");
+            for (int i = 0; i < cardType.block_size; i++) {
+                dataList->replace(i, tmpList[i].toUpper());
+                qDebug() << tmpList[i];
+            }
+        }
+        file.close();
 
-    // --- 新增：智能修正 Dump 文件中的隐藏密码 ---
-    for (int i = 0; i < cardType.block_size; i++) {
-        // 判断当前块是不是密码控制块 (Trailer Block)
-        bool isTrailer = (i < 128 && ((i + 1) % 4 == 0)) || ((i + 1) % 16 == 0);
-        if (isTrailer) {
-            QString fileData = dataList->at(i);
-            if (fileData.length() == 32) {
-                bool changed = false;
-                // 如果读出的 KeyB 全是0，说明原卡 KeyB 隐藏不可读，自动转为 FFFFFFFFFFFF
-                if (fileData.right(12) == "000000000000") {
-                    fileData.replace(20, 12, "FFFFFFFFFFFF");
-                    changed = true;
-                }
-                // 如果 KeyA 也是0，同理恢复
-                if (fileData.left(12) == "000000000000") {
-                    fileData.replace(0, 12, "FFFFFFFFFFFF");
-                    changed = true;
-                }
-                // 将修正后的数据写回内存列表
-                if (changed) {
-                    dataList->replace(i, fileData);
+        // --- 新增：智能修正 Dump 文件中的隐藏密码 ---
+        for (int i = 0; i < cardType.block_size; i++) {
+            // 判断当前块是不是密码控制块 (Trailer Block)
+            bool isTrailer = (i < 128 && ((i + 1) % 4 == 0)) || ((i + 1) % 16 == 0);
+            if (isTrailer) {
+                QString fileData = dataList->at(i);
+                if (fileData.length() == 32) {
+                    bool changed = false;
+                    // 如果读出的 KeyB 全是0，说明原卡 KeyB 隐藏不可读，自动转为 FFFFFFFFFFFF
+                    if (fileData.right(12) == "000000000000") {
+                        fileData.replace(20, 12, "FFFFFFFFFFFF");
+                        changed = true;
+                    }
+                    // 如果 KeyA 也是0，同理恢复
+                    if (fileData.left(12) == "000000000000") {
+                        fileData.replace(0, 12, "FFFFFFFFFFFF");
+                        changed = true;
+                    }
+                    // 将修正后的数据写回内存列表
+                    if (changed) {
+                        dataList->replace(i, fileData);
+                    }
                 }
             }
         }
-    }
 
-    data_syncWithDataWidget();
-    return true;
-  } else {
-    return false;
-  }
+        data_syncWithDataWidget();
+        return true;
+    } else {
+        return false;
+    }
 }
 
 bool Mifare::data_compareDataFile(const QString &filename) {
@@ -1421,20 +1422,9 @@ bool Mifare::data_compareDataFile(const QString &filename) {
     }
 
     int diffCount = 0;
+    QString detailsHtml = ""; // 用于暂存每一个数据块的详细对比结果
 
-    // 🌟 修复 1：去掉 HTML 里写死的字体，让 Qt 统一接管字体渲染
-    QString diffResult = "<div style='font-size: 13px;'>";
-    diffResult += "<h3>" + tr("【数据对比结果：面板数据 vs 新加载文件】") + "</h3>";
-
-    // 格式化辅助函数：4字节（8字符）一组，中间加空格
-    auto formatData = [](const QString& str) {
-        if (str.length() == 32) {
-            return str.mid(0, 8) + " " + str.mid(8, 8) + " " +
-                   str.mid(16, 8) + " " + str.mid(24, 8);
-        }
-        return str;
-    };
-
+    // 遍历每一个块，生成详细对比视图
     for (int i = 0; i < cardType.block_size; i++) {
         QString fileData = "";
         if (isBin) {
@@ -1452,44 +1442,92 @@ bool Mifare::data_compareDataFile(const QString &filename) {
 
         bool isDiff = (fileData != panelData);
 
-        // 使用空格格式化即将展示的数据
-        QString displayPanelData = formatData(panelData);
-        QString displayFileData = formatData(fileData);
+        QString pStr = "";
+        QString fStr = "";
 
-        if (isDiff) {
-            diffResult += QString("<div style='margin-bottom: 10px;'>") +
-                          tr("<span style='color: #E53935; font-size: 14px;'><b>[✖] 块 (Block) %1: [不一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(displayPanelData) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(displayFileData) + "</div>";
-            diffCount++;
+        // 核心逻辑：逐字节对比，不一致的加上红底红字的高亮 span
+        if (fileData.length() == 32 && panelData.length() == 32) {
+            for (int j = 0; j < 16; j++) {
+                QString pb = panelData.mid(j * 2, 2);
+                QString fb = fileData.mid(j * 2, 2);
+
+                if (pb == fb) {
+                    pStr += pb + "&nbsp;";
+                    fStr += fb + "&nbsp;";
+                } else {
+                    // 差异字节：浅红底色，深红文字
+                    pStr += QString("<span style='background-color: #FFCDD2; color: #C62828;'>%1</span>&nbsp;").arg(pb);
+                    fStr += QString("<span style='background-color: #FFCDD2; color: #C62828;'>%1</span>&nbsp;").arg(fb);
+                }
+            }
         } else {
-            diffResult += QString("<div style='margin-bottom: 10px;'>") +
-                          tr("<span style='color: #43A047; font-size: 14px;'><b>[✔] 块 (Block) %1: [一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(displayPanelData) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(displayFileData) + "</div>";
+            // 如果数据长度异常（如读取失败）
+            pStr = QString("<span style='color: #C62828;'>%1</span>").arg(panelData.isEmpty() ? "空" : panelData);
+            fStr = QString("<span style='color: #C62828;'>%1</span>").arg(fileData);
+        }
+
+        // 组装单个块的 HTML
+        if (isDiff) {
+            diffCount++;
+            detailsHtml += QString("<div style='background-color: #FFF5F5; margin-bottom: 12px; padding: 10px;'>") +
+                           tr("<table width='100%' border='0' cellspacing='0' cellpadding='4'>") +
+                           tr("<tr><td colspan='2'>") +
+                           tr("<span style='background-color: #F44336; color: white; font-weight: bold;'>&nbsp;块 %1&nbsp;</span>").arg(i) +
+                           tr("&nbsp;&nbsp;<span style='color: #F44336; font-weight: bold;'>[✖] 不一致</span></td></tr>") +
+                           tr("<tr><td width='70' style='color: #666;'>当前面板</td><td style='font-family: Consolas, Menlo, monospace;'>%1</td></tr>").arg(pStr) +
+                           tr("<tr><td width='70' style='color: #666;'>加载文件</td><td style='font-family: Consolas, Menlo, monospace;'>%1</td></tr>").arg(fStr) +
+                           tr("</table></div>");
+        } else {
+            detailsHtml += QString("<div style='background-color: #FAFAFA; margin-bottom: 12px; padding: 10px;'>") +
+                           tr("<table width='100%' border='0' cellspacing='0' cellpadding='4'>") +
+                           tr("<tr><td colspan='2'>") +
+                           tr("<span style='background-color: #9E9E9E; color: white; font-weight: bold;'>&nbsp;块 %1&nbsp;</span>").arg(i) +
+                           tr("</td></tr>") +
+                           tr("<tr><td width='70' style='color: #666;'>当前面板</td><td style='font-family: Consolas, Menlo, monospace; color: #333;'>%1</td></tr>").arg(pStr) +
+                           tr("<tr><td width='70' style='color: #666;'>加载文件</td><td style='font-family: Consolas, Menlo, monospace; color: #333;'>%1</td></tr>").arg(fStr) +
+                           tr("</table></div>");
         }
     }
+
+    // ---------------------------------------------------------
+    // 组装最终 HTML：加入高颜值的顶部结果横幅 (Banner)
+    // ---------------------------------------------------------
+    QString diffResult = "<div style='font-size: 13px;'>";
+    diffResult += "<h3 style='margin-bottom: 10px;text-align: center;'>" + tr("【数据对比结果：面板数据 vs 外部文件】") + "</h3>";
+
+    if (diffCount > 0) {
+        // 红色警告横幅：左侧带红色粗边框，淡红底色，深红文字
+        diffResult += QString("<div style='background-color: #FFEBEE; color: #C62828; padding: 10px; margin-bottom: 15px; border-left: 5px solid #F44336;text-align: center;'>") +
+                      tr("<span style='font-size: 14px; font-weight: bold;'>⚠ 注意：检测到 %1 个数据块不一致！</span>").arg(diffCount) +
+                      "</div>";
+    } else {
+        // 蓝色成功横幅：左侧带蓝色粗边框，淡蓝底色，深蓝文字
+        diffResult += QString("<div style='background-color: #e8f7ee; color: #1f7a4c; padding: 10px; margin-bottom: 15px; border-left: 5px solid #34a853;text-align: center;'>") +
+                      tr("<span style='font-size: 14px; font-weight: bold;'>✔ 完美：所有数据块完全一致。</span>") +
+                      "</div>";
+    }
+
+    diffResult += detailsHtml; // 将之前存好的块详情拼接到后面
     diffResult += "</div>";
 
+    // ---------------------------------------------------------
     // 弹窗展示
+    // ---------------------------------------------------------
     QDialog *diffDialog = new QDialog(parent);
     diffDialog->setWindowTitle(tr("对比完成：发现 %1 个不同数据块").arg(diffCount));
-    diffDialog->resize(680, 500); // 稍微加宽一点，防止等宽字体渲染变宽后导致自动换行
+    diffDialog->resize(760, 600); // 调整尺寸适应排版
 
     QVBoxLayout *layout = new QVBoxLayout(diffDialog);
 
     QTextEdit *textEdit = new QTextEdit(diffDialog);
     textEdit->setReadOnly(true);
 
-    // ==========================================
-    // 🌟 修复 2：在 C++ 层强制给 QTextEdit 设置系统级等宽字体
-    // ==========================================
-    QFont monoFont("Menlo", 13);             // 指定 macOS 下视觉效果极佳的等宽字体 Menlo
-    monoFont.setStyleHint(QFont::Monospace); // 兜底策略：强行要求系统匹配等宽字体
-    textEdit->setFont(monoFont);             // 绑定到文本框
-    // ==========================================
+    // 强制给 QTextEdit 设置系统级等宽字体
+    QFont monoFont("Menlo", 13);
+    monoFont.setStyleHint(QFont::Monospace);
+    textEdit->setFont(monoFont);
 
-    textEdit->setHtml(diffResult); // 核心：按 HTML 渲染文本颜色，但字体由外部控件接管
+    textEdit->setHtml(diffResult);
 
     QPushButton *closeBtn = new QPushButton(tr("关闭 (Close)"), diffDialog);
     connect(closeBtn, &QPushButton::clicked, diffDialog, &QDialog::accept);
@@ -1502,6 +1540,8 @@ bool Mifare::data_compareDataFile(const QString &filename) {
 
     return true;
 }
+
+
 
 bool Mifare::data_loadKeyFile(const QString &filename) {
     QFile file(filename, this);
@@ -1539,51 +1579,51 @@ bool Mifare::data_loadKeyFile(const QString &filename) {
 }
 
 QString Mifare::bin2text(const QByteArray &buff, int i, int length) {
-  QString ret = "";
-  char LByte, RByte;
-  char map[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
-                  '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-  for (int j = 0; j < length; j++) {
-    LByte = map[(unsigned char)buff[i * length + j] >> 4];
-    RByte = map[(unsigned char)buff[i * length + j] & 0xF];
-    ret += LByte;
-    ret += RByte;
-  }
-  qDebug() << ret;
-  return ret;
+    QString ret = "";
+    char LByte, RByte;
+    char map[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+    for (int j = 0; j < length; j++) {
+        LByte = map[(unsigned char)buff[i * length + j] >> 4];
+        RByte = map[(unsigned char)buff[i * length + j] & 0xF];
+        ret += LByte;
+        ret += RByte;
+    }
+    qDebug() << ret;
+    return ret;
 }
 
 bool Mifare::data_saveDataFile(const QString &filename, bool isBin) {
-  QFile file(filename, this);
-  if (file.open(QIODevice::WriteOnly)) {
-    QByteArray buff;
-    QChar tmp;
-    if (isBin) {
-      for (int i = 0; i < cardType.block_size; i++) {
-        for (int j = 0; j < 16; j++) {
-          unsigned char Byt[2] = {0x0, 0x0};
-          for (int k = 0; k < 2; k++) {
-            tmp = dataList->at(i).at(j * 2 + k).toUpper();
-            if (tmp >= '0' && tmp <= '9')
-              Byt[k] = tmp.toLatin1() - '0';
-            else if (tmp >= 'A' && tmp <= 'F')
-              Byt[k] = tmp.toLatin1() - 'A' + 10;
-          }
-          buff += (Byt[0] << 4) | Byt[1];
+    QFile file(filename, this);
+    if (file.open(QIODevice::WriteOnly)) {
+        QByteArray buff;
+        QChar tmp;
+        if (isBin) {
+            for (int i = 0; i < cardType.block_size; i++) {
+                for (int j = 0; j < 16; j++) {
+                    unsigned char Byt[2] = {0x0, 0x0};
+                    for (int k = 0; k < 2; k++) {
+                        tmp = dataList->at(i).at(j * 2 + k).toUpper();
+                        if (tmp >= '0' && tmp <= '9')
+                            Byt[k] = tmp.toLatin1() - '0';
+                        else if (tmp >= 'A' && tmp <= 'F')
+                            Byt[k] = tmp.toLatin1() - 'A' + 10;
+                    }
+                    buff += (Byt[0] << 4) | Byt[1];
+                }
+            }
+        } else {
+            for (int i = 0; i < cardType.block_size; i++) {
+                buff += dataList->at(i);
+                buff += "\n";
+            }
         }
-      }
+        bool ret = file.write(buff) != -1;
+        file.close();
+        return ret;
     } else {
-      for (int i = 0; i < cardType.block_size; i++) {
-        buff += dataList->at(i);
-        buff += "\n";
-      }
+        return false;
     }
-    bool ret = file.write(buff) != -1;
-    file.close();
-    return ret;
-  } else {
-    return false;
-  }
 }
 
 bool Mifare::data_saveKeyFile(const QString &filename, bool isBin) {
@@ -1635,162 +1675,162 @@ bool Mifare::data_saveKeyFile(const QString &filename, bool isBin) {
 }
 
 void Mifare::data_key2Data() {
-  for (int i = 0; i < cardType.sector_size; i++) {
-    QString tmp = "";
-    if (data_isKeyValid(keyAList->at(i)))
-      tmp += keyAList->at(i);
-    else
-      tmp += "????????????";
+    for (int i = 0; i < cardType.sector_size; i++) {
+        QString tmp = "";
+        if (data_isKeyValid(keyAList->at(i)))
+            tmp += keyAList->at(i);
+        else
+            tmp += "????????????";
 
-    if (dataList->at(getTrailerBlockId(i)) == "")
-      tmp += "FF078069"; // default control bytes
-    else
-      tmp += dataList->at(getTrailerBlockId(i)).midRef(12, 8);
+        if (dataList->at(getTrailerBlockId(i)) == "")
+            tmp += "FF078069"; // default control bytes
+        else
+            tmp += dataList->at(getTrailerBlockId(i)).midRef(12, 8);
 
-    if (data_isKeyValid(keyBList->at(i)))
-      tmp += keyBList->at(i);
-    else
-      tmp += "????????????";
+        if (data_isKeyValid(keyBList->at(i)))
+            tmp += keyBList->at(i);
+        else
+            tmp += "????????????";
 
-    dataList->replace(getTrailerBlockId(i), tmp);
-    data_syncWithDataWidget();
-  }
+        dataList->replace(getTrailerBlockId(i), tmp);
+        data_syncWithDataWidget();
+    }
 }
 
 void Mifare::data_data2Key() {
-  for (int i = 0; i < cardType.sector_size; i++) {
-    if (dataList->at(getTrailerBlockId(i)) == "") {
-      keyAList->replace(i, "????????????");
-      keyBList->replace(i, "????????????");
-    } else {
-      keyAList->replace(i, dataList->at(getTrailerBlockId(i)).left(12));
-      keyBList->replace(i, dataList->at(getTrailerBlockId(i)).right(12));
+    for (int i = 0; i < cardType.sector_size; i++) {
+        if (dataList->at(getTrailerBlockId(i)) == "") {
+            keyAList->replace(i, "????????????");
+            keyBList->replace(i, "????????????");
+        } else {
+            keyAList->replace(i, dataList->at(getTrailerBlockId(i)).left(12));
+            keyBList->replace(i, dataList->at(getTrailerBlockId(i)).right(12));
+        }
+        data_syncWithKeyWidget();
     }
-    data_syncWithKeyWidget();
-  }
 }
 
 void Mifare::data_setData(int block, const QString &data) {
-  dataList->replace(block, data);
+    dataList->replace(block, data);
 }
 
 void Mifare::data_setKey(int sector, KeyType keyType, const QString &key) {
-  if (keyType == KEY_A)
-    keyAList->replace(sector, key);
-  else
-    keyBList->replace(sector, key);
+    if (keyType == KEY_A)
+        keyAList->replace(sector, key);
+    else
+        keyBList->replace(sector, key);
 }
 
 void Mifare::data_fillKeys() {
-  for (int i = 0; i < cardType.sector_size; i++) {
-    if (!data_isKeyValid(keyAList->at(i))) {
-      keyAList->replace(i, "FFFFFFFFFFFF");
+    for (int i = 0; i < cardType.sector_size; i++) {
+        if (!data_isKeyValid(keyAList->at(i))) {
+            keyAList->replace(i, "FFFFFFFFFFFF");
+        }
+        if (!data_isKeyValid(keyBList->at(i))) {
+            keyBList->replace(i, "FFFFFFFFFFFF");
+        }
     }
-    if (!data_isKeyValid(keyBList->at(i))) {
-      keyBList->replace(i, "FFFFFFFFFFFF");
-    }
-  }
-  data_syncWithKeyWidget();
+    data_syncWithKeyWidget();
 }
 
 int Mifare::data_b2s(int block) {
-  if (block >= 0 && block < 128)
-    return block / 4;
-  else if (block < 256)
-    return (block - 128) / 16 + 32;
-  else
-    return -1;
+    if (block >= 0 && block < 128)
+        return block / 4;
+    else if (block < 256)
+        return (block - 128) / 16 + 32;
+    else
+        return -1;
 }
 
 bool Mifare::data_isACBitsValid(const QString &text,
                                 QList<quint8> *returnHalfBytes) {
-  QString input = text;
-  input.remove(" ");
-  if (input.length() < 6) {
-    return false;
-  }
-  input = input.left(6);
-  quint32 val = input.toUInt(nullptr, 16);
-  QList<quint8> halfBytes;
-  for (int i = 0; i < 6; i++) {
-    // 6  7  8
-    // AB CD EF->
-    // {0xA, 0xB, 0xC, 0xD, 0xE, 0xF}
-    // {~C2x, ~C1x, C1x, ~C3x, C3, C2}
-    halfBytes.append((val >> ((5 - i) * 4)) & 0xf);
-  }
-  // qDebug() << val;
-  if ((~halfBytes[0] & 0xf) == halfBytes[5] &&
-      (~halfBytes[1] & 0xf) == halfBytes[2] &&
-      (~halfBytes[3] & 0xf) == halfBytes[4]) {
-    if (returnHalfBytes != nullptr)
-      *returnHalfBytes = halfBytes;
-    return true;
-  } else
-    return false;
+    QString input = text;
+    input.remove(" ");
+    if (input.length() < 6) {
+        return false;
+    }
+    input = input.left(6);
+    quint32 val = input.toUInt(nullptr, 16);
+    QList<quint8> halfBytes;
+    for (int i = 0; i < 6; i++) {
+        // 6  7  8
+        // AB CD EF->
+        // {0xA, 0xB, 0xC, 0xD, 0xE, 0xF}
+        // {~C2x, ~C1x, C1x, ~C3x, C3, C2}
+        halfBytes.append((val >> ((5 - i) * 4)) & 0xf);
+    }
+    // qDebug() << val;
+    if ((~halfBytes[0] & 0xf) == halfBytes[5] &&
+        (~halfBytes[1] & 0xf) == halfBytes[2] &&
+        (~halfBytes[3] & 0xf) == halfBytes[4]) {
+        if (returnHalfBytes != nullptr)
+            *returnHalfBytes = halfBytes;
+        return true;
+    } else
+        return false;
 }
 
 QList<quint8> Mifare::data_getACBits(
     const QString &text) // return empty QList if the text is invalid
 {
-  QList<quint8> halfBytes, result;
-  if (data_isACBitsValid(text, &halfBytes)) {
-    // data in halfbits:
-    // {~C2x, ~C1x, C1x, ~C3x, C3, C2}
-    for (int i = 0; i < 4; i++) {
-      result.append((((halfBytes[4] >> i) & 1) << 2) |
-                    (((halfBytes[5] >> i) & 1) << 1) |
-                    (((halfBytes[2] >> i) & 1) << 0));
-      // {Cx0, Cx1, Cx2, Cx3} (Cx0={C30, C20, C10})
+    QList<quint8> halfBytes, result;
+    if (data_isACBitsValid(text, &halfBytes)) {
+        // data in halfbits:
+        // {~C2x, ~C1x, C1x, ~C3x, C3, C2}
+        for (int i = 0; i < 4; i++) {
+            result.append((((halfBytes[4] >> i) & 1) << 2) |
+                          (((halfBytes[5] >> i) & 1) << 1) |
+                          (((halfBytes[2] >> i) & 1) << 0));
+            // {Cx0, Cx1, Cx2, Cx3} (Cx0={C30, C20, C10})
+        }
     }
-  }
-  return result;
+    return result;
 }
 
 QString Mifare::data_getUID() {
-  if (data_isDataValid(dataList->at(0)))
-    return dataList->at(0).left(8);
-  else
-    return "";
+    if (data_isDataValid(dataList->at(0)))
+        return dataList->at(0).left(8);
+    else
+        return "";
 }
 
 quint16 Mifare::getTrailerBlockId(quint8 sectorId, qint8 cardTypeId) {
-  if (cardTypeId == 0)
-    return (card_mini.blks[sectorId] + card_mini.blk[sectorId] - 1);
-  else if (cardTypeId == 1)
-    return (card_1k.blks[sectorId] + card_1k.blk[sectorId] - 1);
-  else if (cardTypeId == 2)
-    return (card_2k.blks[sectorId] + card_2k.blk[sectorId] - 1);
-  else if (cardTypeId == 4)
-    return (card_4k.blks[sectorId] + card_4k.blk[sectorId] - 1);
-  else
-    // other cardTypeId: use current cardtype(include default -1)
-    return (cardType.blks[sectorId] + cardType.blk[sectorId] - 1);
+    if (cardTypeId == 0)
+        return (card_mini.blks[sectorId] + card_mini.blk[sectorId] - 1);
+    else if (cardTypeId == 1)
+        return (card_1k.blks[sectorId] + card_1k.blk[sectorId] - 1);
+    else if (cardTypeId == 2)
+        return (card_2k.blks[sectorId] + card_2k.blk[sectorId] - 1);
+    else if (cardTypeId == 4)
+        return (card_4k.blks[sectorId] + card_4k.blk[sectorId] - 1);
+    else
+        // other cardTypeId: use current cardtype(include default -1)
+        return (cardType.blks[sectorId] + cardType.blk[sectorId] - 1);
 }
 
 QString Mifare::getTraceSavePath() {
-  QVariantMap config = configMap["save sniff"].toMap();
-  QString pathCmd = config["path cmd"].toString();
-  QString patternText = config["path pattern"].toString();
-  QRegularExpression pattern =
-      QRegularExpression(patternText, QRegularExpression::MultilineOption);
-  if (pathCmd.isEmpty() || patternText.isEmpty())
-    return QString();
-  QString result = util->execCMDWithOutput(pathCmd, 500);
-  QRegularExpressionMatch reMatch = pattern.match(result);
-  if (!reMatch.hasMatch())
-    return QString();
-  return reMatch.captured(1).trimmed();
+    QVariantMap config = configMap["save sniff"].toMap();
+    QString pathCmd = config["path cmd"].toString();
+    QString patternText = config["path pattern"].toString();
+    QRegularExpression pattern =
+        QRegularExpression(patternText, QRegularExpression::MultilineOption);
+    if (pathCmd.isEmpty() || patternText.isEmpty())
+        return QString();
+    QString result = util->execCMDWithOutput(pathCmd, 500);
+    QRegularExpressionMatch reMatch = pattern.match(result);
+    if (!reMatch.hasMatch())
+        return QString();
+    return reMatch.captured(1).trimmed();
 }
 
 void Mifare::autopwn() // <--- 必须带上 Mifare:: 前缀
 {
-  util->execCMD("hf mf autopwn");
-  Util::gotoRawTab();
+    util->execCMD("hf mf autopwn");
+    Util::gotoRawTab();
 }
 
 void Mifare::scriptRf08s() // <--- 必须带上 Mifare:: 前缀
 {
-  util->execCMD("script run fm11rf08s_recovery.py");
-  Util::gotoRawTab();
+    util->execCMD("script run fm11rf08s_recovery.py");
+    Util::gotoRawTab();
 }
