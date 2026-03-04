@@ -1425,6 +1425,15 @@ bool Mifare::data_compareDataFile(const QString &filename) {
     QString diffResult = "<div style='font-family: Consolas, monospace; font-size: 13px;'>";
     diffResult += "<h3>" + tr("【数据对比结果：面板数据 vs 新加载文件】") + "</h3>";
 
+    // 🌟 新增：格式化辅助函数，将 32 字符拆分成 4 组，每组 8 个字符(4字节)
+    auto formatData = [](const QString& str) {
+        if (str.length() == 32) {
+            return str.mid(0, 8) + " " + str.mid(8, 8) + " " +
+                   str.mid(16, 8) + " " + str.mid(24, 8);
+        }
+        return str;
+    };
+
     for (int i = 0; i < cardType.block_size; i++) {
         QString fileData = "";
         if (isBin) {
@@ -1440,35 +1449,27 @@ bool Mifare::data_compareDataFile(const QString &filename) {
         QString panelData = dataList->at(i);
         if (fileData.isEmpty()) fileData = "读取失败/数据缺失";
 
-        if (fileData != panelData) {
+        // 核心比对依然使用未包含空格的原数据
+        bool isDiff = (fileData != panelData);
+
+        // 🌟 新增：对即将展示在 UI 上的数据进行空格格式化
+        QString displayPanelData = formatData(panelData);
+        QString displayFileData = formatData(fileData);
+
+        if (isDiff) {
             // 不一致：使用标准文本符号 ✖，保证大小对齐
             diffResult += QString("<div style='margin-bottom: 10px;'>") +
                           tr("<span style='color: #E53935; font-size: 14px;'><b>[✖] 块 (Block) %1: [不一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(fileData) + "</div>";
+                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(displayPanelData) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(displayFileData) + "</div>";
             diffCount++;
         } else {
             // 一致：使用标准文本符号 ✔，保证大小对齐
             diffResult += QString("<div style='margin-bottom: 10px;'>") +
                           tr("<span style='color: #43A047; font-size: 14px;'><b>[✔] 块 (Block) %1: [一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-                          tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(fileData) + "</div>";
+                          tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(displayPanelData) + "<br>" +
+                          tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(displayFileData) + "</div>";
         }
-
-        // if (fileData != panelData) {
-        //     // 不一致：标题标红并加 ❌ 粗体，数据也标红
-        //     diffResult += QString("<div style='margin-bottom: 10px;'>") +
-        //                   tr("<span style='color: #E53935; font-size: 14px;'>❌ <b>块 (Block) %1: [不一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #D32F2F;'>文件数据: %1</span>").arg(fileData) + "</div>";
-        //     diffCount++;
-        // } else {
-        //     // 一致：标题标绿并加 ✅，数据使用较淡的灰色以降低视觉干扰
-        //     diffResult += QString("<div style='margin-bottom: 10px;'>") +
-        //                   tr("<span style='color: #43A047; font-size: 14px;'>✅ <b>块 (Block) %1: [一致]</b></span>").arg(i, 2, 10, QChar('0')) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #666666;'>面板数据: %1</span>").arg(panelData) + "<br>" +
-        //                   tr("&nbsp;&nbsp;<span style='color: #666666;'>文件数据: %1</span>").arg(fileData) + "</div>";
-        // }
     }
     diffResult += "</div>";
 
@@ -1481,7 +1482,7 @@ bool Mifare::data_compareDataFile(const QString &filename) {
 
     QTextEdit *textEdit = new QTextEdit(diffDialog);
     textEdit->setReadOnly(true);
-    textEdit->setHtml(diffResult); // 核心：按 HTML 渲染，自动处理颜色
+    textEdit->setHtml(diffResult);
 
     QPushButton *closeBtn = new QPushButton(tr("关闭 (Close)"), diffDialog);
     connect(closeBtn, &QPushButton::clicked, diffDialog, &QDialog::accept);
